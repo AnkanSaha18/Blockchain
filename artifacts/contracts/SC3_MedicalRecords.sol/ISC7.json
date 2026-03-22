@@ -1,0 +1,29 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ISC7",
+  "sourceName": "contracts/SC3_MedicalRecords.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "rxHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "hp",
+          "type": "address"
+        }
+      ],
+      "name": "registerHash",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

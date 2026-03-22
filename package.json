@@ -1,0 +1,11 @@
+{
+  "name": "dcba-contracts",
+  "version": "1.0.0",
+  "description": "DCBA Dual-Chain Blockchain Architecture",
+  "type": "module",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.28.6",
+    "hardhat-gas-reporter": "^1.0.10"
+  }
+}

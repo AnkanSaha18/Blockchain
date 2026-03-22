@@ -1,0 +1,266 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "/Users/ankansaha/Academic Courses/BUET-MSc/April 2025/Blockchain/Project Proposal/Smart Contracts v2/contracts/SC1_IdentityRegistry.sol": {
+      "lastModificationDate": 1774105070966,
+      "contentHash": "d763b13f80c09a8b0aae4e445acf6f53",
+      "sourceName": "contracts/SC1_IdentityRegistry.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "SC1_IdentityRegistry"
+      ]
+    },
+    "/Users/ankansaha/Academic Courses/BUET-MSc/April 2025/Blockchain/Project Proposal/Smart Contracts v2/contracts/SC2_PatientConsent.sol": {
+      "lastModificationDate": 1774105070966,
+      "contentHash": "b539299af906b277b58ae476e5582841",
+      "sourceName": "contracts/SC2_PatientConsent.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "ISC1",
+        "SC2_PatientConsent"
+      ]
+    },
+    "/Users/ankansaha/Academic Courses/BUET-MSc/April 2025/Blockchain/Project Proposal/Smart Contracts v2/contracts/SC3_MedicalRecords.sol": {
+      "lastModificationDate": 1774109186759,
+      "contentHash": "684c217467115ea9cabc632fdc96cd31",
+      "sourceName": "contracts/SC3_MedicalRecords.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "ISC1_v3",
+        "ISC2",
+        "ISC7",
+        "SC3_MedicalRecords"
+      ]
+    },
+    "/Users/ankansaha/Academic Courses/BUET-MSc/April 2025/Blockchain/Project Proposal/Smart Contracts v2/contracts/SC4_DCSScoring.sol": {
+      "lastModificationDate": 1774105070969,
+      "contentHash": "4ef56cdcccdac973f4e9a47edadd1315",
+      "sourceName": "contracts/SC4_DCSScoring.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "ISC1_v4",
+        "SC4_DCSScoring"
+      ]
+    },
+    "/Users/ankansaha/Academic Courses/BUET-MSc/April 2025/Blockchain/Project Proposal/Smart Contracts v2/contracts/SC5_DeliveryOrders.sol": {
+      "lastModificationDate": 1774105070968,
+      "contentHash": "b34b5a6cb2ef22b038f48d3f3808f510",
+      "sourceName": "contracts/SC5_DeliveryOrders.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "ISC1_v5",
+        "ISC7_v5",
+        "SC5_DeliveryOrders"
+      ]
+    },
+    "/Users/ankansaha/Academic Courses/BUET-MSc/April 2025/Blockchain/Project Proposal/Smart Contracts v2/contracts/SC6_DeliveryLifecycle.sol": {
+      "lastModificationDate": 1774105070969,
+      "contentHash": "24e6b2264b8a5797f5a7e48de5cffbff",
+      "sourceName": "contracts/SC6_DeliveryLifecycle.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "ISC1_v6",
+        "ISC4",
+        "SC6_DeliveryLifecycle"
+      ]
+    },
+    "/Users/ankansaha/Academic Courses/BUET-MSc/April 2025/Blockchain/Project Proposal/Smart Contracts v2/contracts/SC7_OracleBridge.sol": {
+      "lastModificationDate": 1774105070967,
+      "contentHash": "c79d5db274c84ea508877e094193422c",
+      "sourceName": "contracts/SC7_OracleBridge.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "SC7_OracleBridge"
+      ]
+    }
+  }
+}
