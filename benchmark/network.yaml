@@ -1,0 +1,23 @@
+name: dcba-uoc-network
+version: "2.0.0"
+caliper:
+  blockchain: fabric
+
+channels:
+  - channelName: dcbachannel
+    contracts:
+      - id: dcba-uoc
+        contractID: dcba-uoc
+
+organizations:
+  - mspid: Org1MSP
+    identities:
+      certificates:
+        - name: Admin@org1
+          clientPrivateKey:
+            path: /home/ankan/fabric/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/a678d29dafeac075cb91e48a5f77d51abf833213f83b22e44eb4ac0bb57f743b_sk
+          clientSignedCert:
+            path: /home/ankan/fabric/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem
+    connectionProfile:
+      path: /home/ankan/dcba/benchmark/connection-org1.yaml
+      discover: true

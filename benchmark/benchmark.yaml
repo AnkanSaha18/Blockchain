@@ -1,0 +1,46 @@
+test:
+  name: DCBA UOC Chaincode Benchmark
+  description: Benchmarks DCS scoring and delivery lifecycle operations on dcbachannel
+
+  workers:
+    number: 2
+
+  rounds:
+    - label: open-and-score-round
+      description: Open a scoring round and submit UAV scores
+      txNumber: 50
+      rateControl:
+        type: fixed-rate
+        opts:
+          tps: 5
+      workload:
+        module: benchmark/workloads/dcs-scoring.js
+        arguments:
+          contractId: dcba-uoc
+          operation: openAndScore
+
+    - label: delivery-lifecycle
+      description: Create delivery, set in-flight, log GPS, confirm delivery
+      txNumber: 50
+      rateControl:
+        type: fixed-rate
+        opts:
+          tps: 5
+      workload:
+        module: benchmark/workloads/delivery-lifecycle.js
+        arguments:
+          contractId: dcba-uoc
+          operation: fullLifecycle
+
+    - label: query-winner
+      description: Query DCS round winners (read-only)
+      txNumber: 100
+      rateControl:
+        type: fixed-rate
+        opts:
+          tps: 20
+      workload:
+        module: benchmark/workloads/query-operations.js
+        arguments:
+          contractId: dcba-uoc
+          operation: getDelivery

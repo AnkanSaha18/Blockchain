@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DCBA System Report — Dual-Chain Blockchain Architecture</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Syne:wght@400;600;700;800&display=swap');
+
+
+:root {
+  --bg: #0a0e1a;
+  --surface: #0f1629;
+  --surface2: #141e35;
+  --border: #1e2d4a;
+  --accent: #00d4ff;
+  --accent2: #7c3aed;
+  --accent3: #10b981;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #475569;
+  --chain1: #00d4ff;
+  --chain2: #7c3aed;
+  --oracle: #10b981;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── GRID BG ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── HEADER ── */
+header {
+  position: relative;
+  padding: 60px 60px 40px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, rgba(0,212,255,0.05) 0%, rgba(124,58,237,0.05) 100%);
+  overflow: hidden;
+  z-index: 1;
+}
+header::after {
+  content: 'DCBA';
+  position: absolute;
+  right: -20px;
+  top: -30px;
+  font-size: 180px;
+  font-weight: 800;
+  color: rgba(0,212,255,0.04);
+  letter-spacing: -10px;
+  pointer-events: none;
+}
+.header-tag {
+  display: inline-block;
+  background: rgba(0,212,255,0.1);
+  border: 1px solid rgba(0,212,255,0.3);
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 3px;
+  letter-spacing: 2px;
+  margin-bottom: 16px;
+}
+header h1 {
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.1;
+  margin-bottom: 8px;
+}
+header h1 span { color: var(--accent); }
+header p.subtitle {
+  color: var(--text2);
+  font-size: 16px;
+  max-width: 600px;
+  margin-bottom: 28px;
+}
+.header-meta {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.meta-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.meta-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* ── NAV ── */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(10,14,26,0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 60px;
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+}
+nav a {
+  color: var(--text2);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 14px 16px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+nav a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── LAYOUT ── */
+main { position: relative; z-index: 1; }
+section {
+  padding: 60px 60px;
+  border-bottom: 1px solid var(--border);
+}
+section:last-child { border-bottom: none; }
+
+.section-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.section-title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 6px;
+}
+.section-sub {
+  color: var(--text2);
+  margin-bottom: 40px;
+  font-size: 15px;
+}
+
+/* ── STAT CARDS ── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 40px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.stat-card:hover { border-color: var(--accent); }
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--card-color, var(--accent));
+}
+.stat-num {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--card-color, var(--accent));
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-label {
+  font-size: 12px;
+  color: var(--text2);
+  font-weight: 600;
+}
+.stat-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+  margin-top: 6px;
+}
+
+/* ── ARCHITECTURE FLOW ── */
+.arch-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 40px 0;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.chain-block {
+  flex: 1;
+  min-width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  position: relative;
+}
+.chain-block.pdc { border-top: 3px solid var(--chain1); }
+.chain-block.uoc { border-top: 3px solid var(--chain2); }
+.chain-block.bridge { border-top: 3px solid var(--oracle); min-width: 160px; max-width: 200px; }
+.chain-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.chain-label.pdc { color: var(--chain1); }
+.chain-label.uoc { color: var(--chain2); }
+.chain-label.bridge { color: var(--oracle); }
+.chain-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.chain-tech {
+  font-size: 12px;
+  color: var(--text3);
+  margin-bottom: 16px;
+}
+.sc-list { list-style: none; }
+.sc-list li {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 5px 8px;
+  margin-bottom: 4px;
+  background: rgba(255,255,255,0.03);
+  border-left: 2px solid var(--border);
+  border-radius: 3px;
+  color: var(--text2);
+  transition: all 0.15s;
+}
+.sc-list li:hover {
+  background: rgba(0,212,255,0.05);
+  border-left-color: var(--accent);
+  color: var(--text);
+}
+.arch-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 60px;
+}
+.arrow-line {
+  width: 40px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--oracle), var(--accent));
+  position: relative;
+}
+.arrow-line::after {
+  content: '▶';
+  position: absolute;
+  right: -8px;
+  top: -7px;
+  font-size: 10px;
+  color: var(--accent);
+}
+.arrow-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--oracle);
+  letter-spacing: 1px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ── FLOW STEPS ── */
+.flow-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0;
+  position: relative;
+  margin: 32px 0;
+}
+.flow-step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-right: none;
+  padding: 20px;
+  position: relative;
+  transition: background 0.2s;
+}
+.flow-step:last-child { border-right: 1px solid var(--border); border-radius: 0 8px 8px 0; }
+.flow-step:first-child { border-radius: 8px 0 0 8px; }
+.flow-step:hover { background: var(--surface2); }
+.flow-step::after {
+  content: '→';
+  position: absolute;
+  right: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent);
+  font-size: 18px;
+  z-index: 2;
+}
+.flow-step:last-child::after { display: none; }
+.step-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+  margin-bottom: 6px;
+}
+.step-actor {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.step-action {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.step-contract {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+}
+
+/* ── BENCHMARK TABLE ── */
+.bench-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 32px;
+  font-size: 14px;
+}
+.bench-table th {
+  background: var(--surface2);
+  color: var(--text2);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.bench-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(30,45,74,0.5);
+  color: var(--text);
+}
+.bench-table tr:hover td { background: rgba(0,212,255,0.03); }
+.bench-table tr:last-child td { border-bottom: none; }
+.tps-val { font-weight: 700; color: var(--accent3); }
+.lat-val { font-family: 'JetBrains Mono', monospace; }
+.succ-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(16,185,129,0.1);
+  border: 1px solid rgba(16,185,129,0.3);
+  color: var(--accent3);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.fail-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.3);
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* ── CHART CONTAINERS ── */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+.chart-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+}
+.chart-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text2);
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+canvas { max-height: 220px; }
+
+/* ── GAS TABLE ── */
+.gas-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.gas-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: border-color 0.15s;
+}
+.gas-row:hover { border-color: var(--accent); }
+.gas-fn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text2);
+}
+.gas-fn span {
+  display: block;
+  font-size: 9px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+.gas-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+}
+.gas-bar {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: 6px;
+  width: 100%;
+}
+.gas-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+}
+
+/* ── SECURITY TABLE ── */
+.sec-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+.sec-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  transition: border-color 0.15s;
+}
+.sec-card:hover { border-color: var(--accent3); }
+.sec-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(16,185,129,0.15);
+  border: 1px solid rgba(16,185,129,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.sec-id {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--accent3);
+  margin-bottom: 3px;
+}
+.sec-name {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.sec-desc {
+  font-size: 12px;
+  color: var(--text2);
+}
+
+/* ── DCS SCALABILITY ── */
+.dcs-grid {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  margin: 32px 0;
+  height: 140px;
+}
+.dcs-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.dcs-bar {
+  width: 100%;
+  background: linear-gradient(180deg, var(--accent) 0%, rgba(0,212,255,0.3) 100%);
+  border-radius: 4px 4px 0 0;
+  transition: opacity 0.2s;
+  position: relative;
+}
+.dcs-bar:hover { opacity: 0.8; }
+.dcs-ms {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.dcs-n {
+  font-size: 11px;
+  color: var(--text3);
+}
+.target-line {
+  position: relative;
+  width: 100%;
+  text-align: right;
+}
+
+/* ── PHASE TIMELINE ── */
+.timeline {
+  position: relative;
+  padding-left: 32px;
+  margin: 32px 0;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent2) 100%);
+}
+.tl-item {
+  position: relative;
+  padding: 0 0 28px 24px;
+}
+.tl-item:last-child { padding-bottom: 0; }
+.tl-dot {
+  position: absolute;
+  left: -26px;
+  top: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.tl-item.done .tl-dot { background: var(--accent3); box-shadow: 0 0 0 2px var(--accent3); }
+.tl-phase {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+  margin-bottom: 3px;
+}
+.tl-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.tl-result {
+  font-size: 13px;
+  color: var(--text2);
+}
+.tl-result strong { color: var(--accent3); }
+
+/* ── ORACLE ── */
+.oracle-flow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 32px 0;
+  overflow-x: auto;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.oracle-node {
+  text-align: center;
+  min-width: 110px;
+}
+.oracle-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  margin: 0 auto 8px;
+}
+.oracle-icon.pdc { background: rgba(0,212,255,0.15); border: 1px solid rgba(0,212,255,0.4); }
+.oracle-icon.bridge { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); }
+.oracle-icon.fabric { background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.4); }
+.oracle-label {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.oracle-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+}
+.oracle-arrow {
+  flex: 1;
+  min-width: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.oracle-line {
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--oracle), var(--accent));
+  position: relative;
+}
+.oracle-line::after {
+  content: '▶';
+  position: absolute;
+  right: -6px;
+  top: -7px;
+  font-size: 9px;
+  color: var(--accent);
+}
+.oracle-ev {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--oracle);
+  text-align: center;
+}
+
+/* ── FOOTER ── */
+footer {
+  padding: 40px 60px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: var(--surface);
+}
+.footer-info {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text3);
+  line-height: 1.8;
+}
+.footer-badge {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.badge.green { background: rgba(16,185,129,0.15); color: var(--accent3); border: 1px solid rgba(16,185,129,0.3); }
+.badge.blue { background: rgba(0,212,255,0.1); color: var(--accent); border: 1px solid rgba(0,212,255,0.3); }
+.badge.purple { background: rgba(124,58,237,0.15); color: #a78bfa; border: 1px solid rgba(124,58,237,0.3); }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+section { animation: fadeUp 0.5s ease both; }
+section:nth-child(1) { animation-delay: 0.1s; }
+section:nth-child(2) { animation-delay: 0.15s; }
+section:nth-child(3) { animation-delay: 0.2s; }
+section:nth-child(4) { animation-delay: 0.25s; }
+section:nth-child(5) { animation-delay: 0.3s; }
+section:nth-child(6) { animation-delay: 0.35s; }
+
+@media (max-width: 768px) {
+  header, section, footer { padding: 32px 24px; }
+  nav { padding: 0 24px; }
+  .charts-grid, .gas-grid, .sec-grid { grid-template-columns: 1fr; }
+  .arch-flow { flex-direction: column; }
+  .arch-arrow { transform: rotate(90deg); }
+  .flow-steps { grid-template-columns: 1fr; }
+  .flow-step { border-right: 1px solid var(--border); border-bottom: none; border-radius: 0; }
+  .flow-step:first-child { border-radius: 8px 8px 0 0; }
+  .flow-step:last-child { border-radius: 0 0 8px 8px; border-bottom: 1px solid var(--border); }
+  .flow-step::after { content: '↓'; right: 50%; bottom: -18px; top: auto; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-tag">TECHNICAL PERFORMANCE REPORT</div>
+  <h1>Dual-Chain Blockchain<br><span>Architecture (DCBA)</span></h1>
+  <p class="subtitle">Secure, Priority-Aware, UAV-Enabled Pharmaceutical Delivery — M.Sc. Research Project, BUET 2025–2026</p>
+  <div class="header-meta">
+    <div class="meta-item">
+      <span class="meta-label">Total Tests</span>
+      <span class="meta-value">86 / 86</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Smart Contracts</span>
+      <span class="meta-value">7 SC</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Oracle Latency</span>
+      <span class="meta-value">16ms</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">100-UAV DCS</span>
+      <span class="meta-value">8.37ms</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Security Attacks</span>
+      <span class="meta-value">10 / 10</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Benchmark Failures</span>
+      <span class="meta-value" style="color:var(--accent3)">0</span>
+    </div>
+  </div>
+</header>
+
+<nav>
+  <a href="#overview">Overview</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#flow">System Flow</a>
+  <a href="#oracle">Oracle Bridge</a>
+  <a href="#benchmark">Benchmark</a>
+  <a href="#dcs">DCS Scalability</a>
+  <a href="#gas">Gas Costs</a>
+  <a href="#security">Security</a>
+  <a href="#phases">Progress</a>
+</nav>
+
+<main>
+
+<!-- ── OVERVIEW ── -->
+<section id="overview">
+  <div class="section-tag">01 / Overview</div>
+  <div class="section-title">What is DCBA?</div>
+  <p class="section-sub">A dual-chain blockchain system solving counterfeit pharmaceuticals and last-mile delivery simultaneously</p>
+
+  <div class="stat-grid">
+    <div class="stat-card" style="--card-color: var(--chain1)">
+      <div class="stat-num">PDC</div>
+      <div class="stat-label">Patient Data Chain</div>
+      <div class="stat-sub">Ethereum PoA · SC-1 to SC-3, SC-7</div>
+    </div>
+    <div class="stat-card" style="--card-color: var(--chain2)">
+      <div class="stat-num">UOC</div>
+      <div class="stat-label">UAV Operational Chain</div>
+      <div class="stat-sub">Hyperledger Fabric · SC-4, SC-5, SC-6</div>
+    </div>
+    <div class="stat-card" style="--card-color: var(--oracle)">
+      <div class="stat-num">SC-7</div>
+      <div class="stat-label">Cross-Chain Oracle Bridge</div>
+      <div class="stat-sub">Replay-safe prescription verification</div>
+    </div>
+    <div class="stat-card" style="--card-color: var(--warn)">
+      <div class="stat-num">8</div>
+      <div class="stat-label">System Actors</div>
+      <div class="stat-sub">Patient · HP · Warehouse · DS · UAV · TA · Miner · Auditor</div>
+    </div>
+    <div class="stat-card" style="--card-color: var(--accent3)">
+      <div class="stat-num">4</div>
+      <div class="stat-label">PARS Priority Tiers</div>
+      <div class="stat-sub">CRITICAL · HIGH · MODERATE · LOW</div>
+    </div>
+    <div class="stat-card" style="--card-color: var(--danger)">
+      <div class="stat-num">0</div>
+      <div class="stat-label">Single Points of Failure</div>
+      <div class="stat-sub">Zero-trust · fully decentralized</div>
+    </div>
+  </div>
+
+  <p style="color:var(--text2); max-width: 800px; line-height:1.8;">
+    DCBA addresses a critical gap: no existing system combines pharmaceutical supply chain integrity with UAV delivery logistics on separate, purpose-optimized blockchains. The PDC uses Ethereum PoA for strong patient data privacy; the UOC uses Hyperledger Fabric for high-throughput IoT operations. SC-7 bridges them with replay-safe prescription verification.
+  </p>
+</section>
+
+<!-- ── ARCHITECTURE ── -->
+<section id="architecture">
+  <div class="section-tag">02 / Architecture</div>
+  <div class="section-title">Dual-Chain Design</div>
+  <p class="section-sub">Two purpose-specific blockchains connected by a cross-chain oracle bridge</p>
+
+  <div class="arch-flow">
+    <div class="chain-block pdc">
+      <div class="chain-label pdc">Patient Data Chain (PDC)</div>
+      <div class="chain-title">Ethereum PoA</div>
+      <div class="chain-tech">Solidity ^0.8.20 · Hardhat 2.x</div>
+      <ul class="sc-list">
+        <li>SC-1 · Identity Registry</li>
+        <li>SC-2 · Patient Consent</li>
+        <li>SC-3 · Medical Records (MBLOCK)</li>
+        <li>SC-7 · Oracle Bridge (PDC side)</li>
+      </ul>
+    </div>
+
+    <div class="arch-arrow">
+      <div class="arrow-line"></div>
+      <div class="arrow-label">rxHash<br>relay</div>
+    </div>
+
+    <div class="chain-block bridge">
+      <div class="chain-label bridge">Oracle</div>
+      <div class="chain-title">Node.js<br>Bridge</div>
+      <div class="chain-tech">ethers.js · event listener</div>
+      <ul class="sc-list">
+        <li>16ms latency</li>
+        <li>Replay-safe</li>
+        <li>One-time use</li>
+      </ul>
+    </div>
+
+    <div class="arch-arrow">
+      <div class="arrow-line"></div>
+      <div class="arrow-label">verified<br>order</div>
+    </div>
+
+    <div class="chain-block uoc">
+      <div class="chain-label uoc">UAV Operational Chain (UOC)</div>
+      <div class="chain-title">Hyperledger Fabric 2.5</div>
+      <div class="chain-tech">Go 1.21 · Docker · Raft consensus</div>
+      <ul class="sc-list">
+        <li>SC-4 · DCS Scoring (drone selection)</li>
+        <li>SC-5 · Delivery Orders (PARS queue)</li>
+        <li>SC-6 · Delivery Lifecycle + GPS log</li>
+      </ul>
+    </div>
+  </div>
+
+  <p style="color:var(--text2); font-size:13px; margin-top:8px;">
+    <strong style="color:var(--text)">Why two chains?</strong> Patient data demands privacy and permissioned access (PDC). UAV telemetry demands throughput and IoT-optimized semantics (UOC). No single blockchain satisfies both simultaneously — hence the dual-chain design.
+  </p>
+</section>
+
+<!-- ── FLOW ── -->
+<section id="flow">
+  <div class="section-tag">03 / System Flow</div>
+  <div class="section-title">End-to-End Delivery Pipeline</div>
+  <p class="section-sub">From prescription creation to patient delivery confirmation — 9 verified steps</p>
+
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="step-num">STEP 01</div>
+      <div class="step-actor">Trusted Authority</div>
+      <div class="step-action">Register all actors</div>
+      <div class="step-contract">SC-1.register()</div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">STEP 02</div>
+      <div class="step-actor">Patient</div>
+      <div class="step-action">Grant HP consent</div>
+      <div class="step-contract">SC-2.grantAccess()</div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">STEP 03</div>
+      <div class="step-actor">Healthcare Provider</div>
+      <div class="step-action">Write MBLOCK record</div>
+      <div class="step-contract">SC-3.addRecord() → SC-7</div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">STEP 04</div>
+      <div class="step-actor">Oracle Bridge</div>
+      <div class="step-action">Relay rxHash PDC→UOC</div>
+      <div class="step-contract">SC-7 · 16ms latency</div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">STEP 05</div>
+      <div class="step-actor">Healthcare Provider</div>
+      <div class="step-action">Submit delivery order</div>
+      <div class="step-contract">SC-5.submitOrder()</div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">STEP 06</div>
+      <div class="step-actor">Warehouse</div>
+      <div class="step-action">Confirm drug stock</div>
+      <div class="step-contract">SC-5.confirmStock()</div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">STEP 07</div>
+      <div class="step-actor">Drone Station</div>
+      <div class="step-action">Run DCS scoring, select UAV</div>
+      <div class="step-contract">SC-4.openRound() → closeRound()</div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">STEP 08</div>
+      <div class="step-actor">UAV (Winner)</div>
+      <div class="step-action">Fly, log GPS trail</div>
+      <div class="step-contract">SC-6.setInFlight() → logGPS()</div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">STEP 09</div>
+      <div class="step-actor">Patient</div>
+      <div class="step-action">Confirm delivery, update reputation</div>
+      <div class="step-contract">SC-6.confirmDelivery()</div>
+    </div>
+  </div>
+
+  <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; margin-top:8px;">
+    <div style="font-size:12px; font-weight:700; color:var(--text2); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">PARS Priority Tiers (Priority-Aware Routing System)</div>
+    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:140px; padding:12px; border-radius:8px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3);">
+        <div style="font-size:11px; font-weight:800; color:#ef4444; margin-bottom:4px;">CRITICAL (90–100)</div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; color:#ef4444;">3 min</div>
+        <div style="font-size:12px; color:var(--text3);">Insulin, Epinephrine</div>
+      </div>
+      <div style="flex:1; min-width:140px; padding:12px; border-radius:8px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3);">
+        <div style="font-size:11px; font-weight:800; color:#f59e0b; margin-bottom:4px;">HIGH (70–89)</div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; color:#f59e0b;">10 min</div>
+        <div style="font-size:12px; color:var(--text3);">Urgent medications</div>
+      </div>
+      <div style="flex:1; min-width:140px; padding:12px; border-radius:8px; background:rgba(0,212,255,0.06); border:1px solid rgba(0,212,255,0.25);">
+        <div style="font-size:11px; font-weight:800; color:var(--accent); margin-bottom:4px;">MODERATE (40–69)</div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; color:var(--accent);">30 min</div>
+        <div style="font-size:12px; color:var(--text3);">Routine medications</div>
+      </div>
+      <div style="flex:1; min-width:140px; padding:12px; border-radius:8px; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.25);">
+        <div style="font-size:11px; font-weight:800; color:var(--accent3); margin-bottom:4px;">LOW (0–39)</div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; color:var(--accent3);">2 hr</div>
+        <div style="font-size:12px; color:var(--text3);">Non-urgent delivery</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── ORACLE ── -->
+<section id="oracle">
+  <div class="section-tag">04 / Oracle Bridge</div>
+  <div class="section-title">Cross-Chain Prescription Verification</div>
+  <p class="section-sub">SC-7 bridges PDC and UOC with replay-safe one-time-use prescription hash verification</p>
+
+  <div class="oracle-flow">
+    <div class="oracle-node">
+      <div class="oracle-icon pdc">📋</div>
+      <div class="oracle-label" style="color:var(--chain1)">SC-3 (PDC)</div>
+      <div class="oracle-sub">HP writes<br>prescription</div>
+    </div>
+    <div class="oracle-arrow">
+      <div class="oracle-line"></div>
+      <div class="oracle-ev">RecordAdded<br>event emitted</div>
+    </div>
+    <div class="oracle-node">
+      <div class="oracle-icon bridge">⚡</div>
+      <div class="oracle-label" style="color:var(--oracle)">Node.js Bridge</div>
+      <div class="oracle-sub">ethers.js<br>listener</div>
+    </div>
+    <div class="oracle-arrow">
+      <div class="oracle-line"></div>
+      <div class="oracle-ev">rxHash<br>registered</div>
+    </div>
+    <div class="oracle-node">
+      <div class="oracle-icon bridge">🔐</div>
+      <div class="oracle-label" style="color:var(--oracle)">SC-7 Oracle</div>
+      <div class="oracle-sub">PENDING → VALID<br>→ USED</div>
+    </div>
+    <div class="oracle-arrow">
+      <div class="oracle-line"></div>
+      <div class="oracle-ev">verifyHash()<br>one-time use</div>
+    </div>
+    <div class="oracle-node">
+      <div class="oracle-icon fabric">🚁</div>
+      <div class="oracle-label" style="color:var(--chain2)">SC-5 (UOC)</div>
+      <div class="oracle-sub">Delivery order<br>approved</div>
+    </div>
+  </div>
+
+  <div class="stat-grid" style="margin-top:24px;">
+    <div class="stat-card" style="--card-color:var(--oracle)">
+      <div class="stat-num">16ms</div>
+      <div class="stat-label">Measured Oracle Latency</div>
+      <div class="stat-sub">SC-3 event → SC-7 verified</div>
+    </div>
+    <div class="stat-card" style="--card-color:var(--accent3)">
+      <div class="stat-num">0</div>
+      <div class="stat-label">Replay Attacks Possible</div>
+      <div class="stat-sub">USED status blocks all reuse</div>
+    </div>
+    <div class="stat-card" style="--card-color:var(--accent)">
+      <div class="stat-num">3</div>
+      <div class="stat-label">Hash States</div>
+      <div class="stat-sub">PENDING → VALID → USED</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── BENCHMARK ── -->
+<section id="benchmark">
+  <div class="section-tag">05 / Hyperledger Caliper Benchmark</div>
+  <div class="section-title">UOC Chaincode Performance</div>
+  <p class="section-sub">3 benchmark rounds on Hyperledger Fabric 2.5 · dcbachannel · 2 workers · 0 failures</p>
+
+  <table class="bench-table">
+    <thead>
+      <tr>
+        <th>Round</th>
+        <th>Description</th>
+        <th>Success</th>
+        <th>Fail</th>
+        <th>Send Rate</th>
+        <th>Avg Latency</th>
+        <th>Max Latency</th>
+        <th>Throughput</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>open-and-score-round</strong></td>
+        <td style="color:var(--text2); font-size:12px;">Open DCS round + submit UAV score</td>
+        <td><span class="succ-badge">✓ 80</span></td>
+        <td><span class="succ-badge">0</span></td>
+        <td class="tps-val">5.4 TPS</td>
+        <td class="lat-val">1.27s</td>
+        <td class="lat-val">2.59s</td>
+        <td class="tps-val">4.6 TPS</td>
+      </tr>
+      <tr>
+        <td><strong>delivery-lifecycle</strong></td>
+        <td style="color:var(--text2); font-size:12px;">Create delivery → setInFlight → logGPS → confirm</td>
+        <td><span class="succ-badge">✓ 64</span></td>
+        <td><span class="succ-badge">0</span></td>
+        <td class="tps-val">5.4 TPS</td>
+        <td class="lat-val">1.25s</td>
+        <td class="lat-val">2.61s</td>
+        <td class="tps-val">4.4 TPS</td>
+      </tr>
+      <tr>
+        <td><strong>query-winner</strong></td>
+        <td style="color:var(--text2); font-size:12px;">Read-only DCS winner query</td>
+        <td><span class="succ-badge">✓ 100</span></td>
+        <td><span class="succ-badge">0</span></td>
+        <td class="tps-val">20.4 TPS</td>
+        <td class="lat-val">0.00s</td>
+        <td class="lat-val">0.01s</td>
+        <td class="tps-val">20.4 TPS</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="charts-grid">
+    <div class="chart-box">
+      <div class="chart-title">Throughput Comparison (TPS)</div>
+      <canvas id="tpsChart"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Latency Distribution (seconds)</div>
+      <canvas id="latChart"></canvas>
+    </div>
+  </div>
+</section>
+
+<!-- ── DCS SCALABILITY ── -->
+<section id="dcs">
+  <div class="section-tag">06 / DCS Scalability</div>
+  <div class="section-title">Drone Capability Score — Fleet Benchmark</div>
+  <p class="section-sub">Two-phase UAV selection: Bloom filter pre-screening + digital signature verification. Target: &lt;140ms for 100 UAVs.</p>
+
+  <div class="dcs-grid">
+    <div class="dcs-bar-wrap">
+      <div class="dcs-ms">0.89ms</div>
+      <div class="dcs-bar" style="height:5px;"></div>
+      <div class="dcs-n">10 UAVs</div>
+    </div>
+    <div class="dcs-bar-wrap">
+      <div class="dcs-ms">3.71ms</div>
+      <div class="dcs-bar" style="height:15px;"></div>
+      <div class="dcs-n">25 UAVs</div>
+    </div>
+    <div class="dcs-bar-wrap">
+      <div class="dcs-ms">4.32ms</div>
+      <div class="dcs-bar" style="height:18px;"></div>
+      <div class="dcs-n">50 UAVs</div>
+    </div>
+    <div class="dcs-bar-wrap">
+      <div class="dcs-ms">7.88ms</div>
+      <div class="dcs-bar" style="height:33px;"></div>
+      <div class="dcs-n">75 UAVs</div>
+    </div>
+    <div class="dcs-bar-wrap">
+      <div class="dcs-ms" style="color:var(--accent3)">8.37ms</div>
+      <div class="dcs-bar" style="height:35px; background:linear-gradient(180deg,var(--accent3),rgba(16,185,129,0.3));"></div>
+      <div class="dcs-n">100 UAVs</div>
+    </div>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:8px; margin-top:4px; font-size:12px; color:var(--text2);">
+    <div style="width:40px; height:2px; background:var(--warn); border-radius:2px;"></div>
+    <span>Target threshold: 140ms — All results <strong style="color:var(--accent3)">94% below target</strong></span>
+  </div>
+
+  <div style="margin-top:24px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px;">
+    <div style="font-size:12px; font-weight:700; color:var(--text2); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">DCS Formula</div>
+    <div style="font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--accent); padding:12px; background:rgba(0,212,255,0.05); border-radius:6px; border-left:3px solid var(--accent);">
+      score = (speed×30 + payload×25 + battery×20 + cpu×15 + ram×10) / 100
+    </div>
+    <div style="margin-top:12px; display:flex; gap:12px; flex-wrap:wrap;">
+      <span style="font-size:12px; color:var(--text2);">speed <strong style="color:var(--text)">30%</strong></span>
+      <span style="font-size:12px; color:var(--text2);">payload <strong style="color:var(--text)">25%</strong></span>
+      <span style="font-size:12px; color:var(--text2);">battery <strong style="color:var(--text)">20%</strong></span>
+      <span style="font-size:12px; color:var(--text2);">cpu <strong style="color:var(--text)">15%</strong></span>
+      <span style="font-size:12px; color:var(--text2);">ram <strong style="color:var(--text)">10%</strong></span>
+    </div>
+  </div>
+</section>
+
+<!-- ── GAS COSTS ── -->
+<section id="gas">
+  <div class="section-tag">07 / PDC Gas Cost Analysis</div>
+  <div class="section-title">Smart Contract Function Costs</div>
+  <p class="section-sub">Measured on Hardhat local network · Solidity ^0.8.20 · optimizer enabled (200 runs) · Ethereum PoA (gas is nominal)</p>
+
+  <div class="gas-grid">
+    <div>
+      <div style="font-size:11px; font-weight:700; color:var(--chain1); margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;">SC1 — Identity Registry</div>
+      <div class="gas-row">
+        <div class="gas-fn">register() <span>Register new actor</span></div>
+        <div>
+          <div class="gas-val" style="color:var(--warn)">118,652</div>
+          <div class="gas-bar"><div class="gas-bar-fill" style="width:32%"></div></div>
+        </div>
+      </div>
+      <div class="gas-row" style="margin-top:6px;">
+        <div class="gas-fn">revoke() <span>Revoke an actor</span></div>
+        <div>
+          <div class="gas-val" style="color:var(--accent3)">27,515</div>
+          <div class="gas-bar"><div class="gas-bar-fill" style="width:7%"></div></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:11px; font-weight:700; color:var(--chain1); margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;">SC2 — Patient Consent</div>
+      <div class="gas-row">
+        <div class="gas-fn">grantAccess() <span>Grant time-limited consent</span></div>
+        <div>
+          <div class="gas-val" style="color:var(--warn)">101,267</div>
+          <div class="gas-bar"><div class="gas-bar-fill" style="width:27%"></div></div>
+        </div>
+      </div>
+      <div class="gas-row" style="margin-top:6px;">
+        <div class="gas-fn">revokeAccess() <span>Revoke HP consent</span></div>
+        <div>
+          <div class="gas-val" style="color:var(--accent3)">23,924</div>
+          <div class="gas-bar"><div class="gas-bar-fill" style="width:6%"></div></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:11px; font-weight:700; color:var(--chain1); margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;">SC3 — Medical Records</div>
+      <div class="gas-row">
+        <div class="gas-fn">addRecord() CRITICAL <span>Write MBLOCK + register rxHash in SC7</span></div>
+        <div>
+          <div class="gas-val" style="color:var(--danger)">324,306</div>
+          <div class="gas-bar"><div class="gas-bar-fill" style="width:88%"></div></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:11px; font-weight:700; color:var(--chain1); margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;">SC4 — DCS Scoring</div>
+      <div class="gas-row">
+        <div class="gas-fn">openRound() <span>Open scoring competition</span></div>
+        <div>
+          <div class="gas-val" style="color:var(--warn)">104,650</div>
+          <div class="gas-bar"><div class="gas-bar-fill" style="width:28%"></div></div>
+        </div>
+      </div>
+      <div class="gas-row" style="margin-top:6px;">
+        <div class="gas-fn">submitScore() <span>UAV submits capability score</span></div>
+        <div>
+          <div class="gas-val" style="color:var(--warn)">188,911</div>
+          <div class="gas-bar"><div class="gas-bar-fill" style="width:51%"></div></div>
+        </div>
+      </div>
+      <div class="gas-row" style="margin-top:6px;">
+        <div class="gas-fn">closeRound() 1 UAV <span>Select winner (argmax)</span></div>
+        <div>
+          <div class="gas-val" style="color:var(--accent3)">88,674</div>
+          <div class="gas-bar"><div class="gas-bar-fill" style="width:24%"></div></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:11px; font-weight:700; color:var(--chain1); margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;">SC5 — Delivery Orders</div>
+      <div class="gas-row">
+        <div class="gas-fn">submitOrder() <span>Submit + SC7 cross-chain verify</span></div>
+        <div>
+          <div class="gas-val" style="color:var(--danger)">369,599</div>
+          <div class="gas-bar"><div class="gas-bar-fill" style="width:100%"></div></div>
+        </div>
+      </div>
+      <div class="gas-row" style="margin-top:6px;">
+        <div class="gas-fn">confirmStock() <span>Warehouse confirms drugs</span></div>
+        <div>
+          <div class="gas-val" style="color:var(--accent3)">49,039</div>
+          <div class="gas-bar"><div class="gas-bar-fill" style="width:13%"></div></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:11px; font-weight:700; color:var(--chain1); margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;">SC6 — Delivery Lifecycle</div>
+      <div class="gas-row">
+        <div class="gas-fn">logGPS() <span>Log IPFS GPS hash per second</span></div>
+        <div>
+          <div class="gas-val" style="color:var(--warn)">118,582</div>
+          <div class="gas-bar"><div class="gas-bar-fill" style="width:32%"></div></div>
+        </div>
+      </div>
+      <div class="gas-row" style="margin-top:6px;">
+        <div class="gas-fn">confirmDelivery() <span>Patient confirms + updates rep.</span></div>
+        <div>
+          <div class="gas-val" style="color:var(--warn)">120,122</div>
+          <div class="gas-bar"><div class="gas-bar-fill" style="width:32%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size:13px; color:var(--text2);">
+    <strong style="color:var(--text)">Note:</strong> SC5.submitOrder() has the highest gas cost (369,599) because it performs cross-contract calls to SC1.isActive() and SC7.verifyHash() in addition to writing the full DeliveryOrder struct. SC6.logGPS() (118,582 per call) motivates GPS logging being moved to Hyperledger Fabric UOC in production.
+  </p>
+</section>
+
+<!-- ── SECURITY ── -->
+<section id="security">
+  <div class="section-tag">08 / Security Analysis</div>
+  <div class="section-title">Attack Vector Mitigation</div>
+  <p class="section-sub">10 adversarial test cases — all blocked. Zero-trust verification on every transaction.</p>
+
+  <div class="stat-grid" style="margin-bottom:32px;">
+    <div class="stat-card" style="--card-color:var(--accent3)">
+      <div class="stat-num">10/10</div>
+      <div class="stat-label">Attacks Blocked</div>
+      <div class="stat-sub">All security tests pass</div>
+    </div>
+    <div class="stat-card" style="--card-color:var(--accent3)">
+      <div class="stat-num">0</div>
+      <div class="stat-label">False Negatives</div>
+      <div class="stat-sub">No legitimate tx rejected</div>
+    </div>
+  </div>
+
+  <div class="sec-grid">
+    <div class="sec-card">
+      <div class="sec-badge">🛡</div>
+      <div>
+        <div class="sec-id">TC-SEC-01</div>
+        <div class="sec-name">Prescription Replay Attack</div>
+        <div class="sec-desc">SC-7 marks rxHash as USED after first verification — reuse returns false immediately</div>
+      </div>
+    </div>
+    <div class="sec-card">
+      <div class="sec-badge">🛡</div>
+      <div>
+        <div class="sec-id">TC-SEC-02</div>
+        <div class="sec-name">Unregistered Actor Access</div>
+        <div class="sec-desc">SC1.isActive() check on every transaction — unregistered addresses always rejected</div>
+      </div>
+    </div>
+    <div class="sec-card">
+      <div class="sec-badge">🛡</div>
+      <div>
+        <div class="sec-id">TC-SEC-03</div>
+        <div class="sec-name">Revoked HP Writing Records</div>
+        <div class="sec-desc">Revoked HP fails SC1.isActive() — cannot write MBLOCK even with old consent</div>
+      </div>
+    </div>
+    <div class="sec-card">
+      <div class="sec-badge">🛡</div>
+      <div>
+        <div class="sec-id">TC-SEC-04</div>
+        <div class="sec-name">Fake UAV in DCS Round</div>
+        <div class="sec-desc">Unregistered UAV address dropped by Bloom filter pre-screen in SC-4</div>
+      </div>
+    </div>
+    <div class="sec-card">
+      <div class="sec-badge">🛡</div>
+      <div>
+        <div class="sec-id">TC-SEC-05</div>
+        <div class="sec-name">Delivery Confirmation Hijack</div>
+        <div class="sec-desc">Only patient address stored in delivery record can call confirmDelivery()</div>
+      </div>
+    </div>
+    <div class="sec-card">
+      <div class="sec-badge">🛡</div>
+      <div>
+        <div class="sec-id">TC-SEC-06</div>
+        <div class="sec-name">HP Without Consent</div>
+        <div class="sec-desc">SC-2.hasAccess() check in SC-3 — no consent token means instant revert</div>
+      </div>
+    </div>
+    <div class="sec-card">
+      <div class="sec-badge">🛡</div>
+      <div>
+        <div class="sec-id">TC-SEC-07</div>
+        <div class="sec-name">TA Authority Hijack</div>
+        <div class="sec-desc">onlyTA modifier enforced — transferTA() requires current TA private key</div>
+      </div>
+    </div>
+    <div class="sec-card">
+      <div class="sec-badge">🛡</div>
+      <div>
+        <div class="sec-id">TC-SEC-08</div>
+        <div class="sec-name">Direct Oracle Manipulation</div>
+        <div class="sec-desc">sc3Address whitelist — only SC-3 contract address can call registerHash()</div>
+      </div>
+    </div>
+    <div class="sec-card">
+      <div class="sec-badge">🛡</div>
+      <div>
+        <div class="sec-id">TC-SEC-09</div>
+        <div class="sec-name">Cross-DS Round Interference</div>
+        <div class="sec-desc">droneStation address stored at openRound() — only opener can closeRound()</div>
+      </div>
+    </div>
+    <div class="sec-card">
+      <div class="sec-badge">🛡</div>
+      <div>
+        <div class="sec-id">TC-SEC-10</div>
+        <div class="sec-name">Rogue Warehouse Confirmation</div>
+        <div class="sec-desc">warehouse address stored per order — only assigned warehouse can confirmStock()</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PHASES ── -->
+<section id="phases">
+  <div class="section-tag">09 / Project Progress</div>
+  <div class="section-title">Implementation Phases</div>
+  <p class="section-sub">BUET M.Sc. Research Project — DCBA complete implementation timeline</p>
+
+  <div class="timeline">
+    <div class="tl-item done">
+      <div class="tl-dot"></div>
+      <div class="tl-phase">PHASE 0</div>
+      <div class="tl-title">Environment Setup</div>
+      <div class="tl-result">Node.js 20 · Hardhat · Go 1.21 · Docker · Hyperledger Fabric 2.5 · IPFS Kubo</div>
+    </div>
+    <div class="tl-item done">
+      <div class="tl-dot"></div>
+      <div class="tl-phase">PHASE 1</div>
+      <div class="tl-title">PDC Smart Contracts</div>
+      <div class="tl-result"><strong>86/86 tests passing</strong> · 7 Solidity contracts · SC-1 through SC-7 · Gas benchmarks complete</div>
+    </div>
+    <div class="tl-item done">
+      <div class="tl-dot"></div>
+      <div class="tl-phase">PHASE 2</div>
+      <div class="tl-title">UOC Hyperledger Fabric Chaincode</div>
+      <div class="tl-result"><strong>Deployed on dcbachannel</strong> · Org1MSP + Org2MSP approved · DCS scoring + delivery lifecycle Go chaincode</div>
+    </div>
+    <div class="tl-item done">
+      <div class="tl-dot"></div>
+      <div class="tl-phase">PHASE 3</div>
+      <div class="tl-title">Oracle Bridge</div>
+      <div class="tl-result"><strong>16ms relay latency</strong> · RecordAdded event → SC-7 verification · Replay prevention confirmed</div>
+    </div>
+    <div class="tl-item done">
+      <div class="tl-dot"></div>
+      <div class="tl-phase">PHASE 4</div>
+      <div class="tl-title">UAV Fleet Simulation</div>
+      <div class="tl-result"><strong>100 UAVs in 8.37ms</strong> · Python threading · DCS formula verified · Scalability confirmed</div>
+    </div>
+    <div class="tl-item done">
+      <div class="tl-dot"></div>
+      <div class="tl-phase">PHASE 5</div>
+      <div class="tl-title">Hyperledger Caliper Benchmarking</div>
+      <div class="tl-result"><strong>0 failures across 244 transactions</strong> · 3 rounds · TPS and latency measured · HTML report generated</div>
+    </div>
+    <div class="tl-item done">
+      <div class="tl-dot"></div>
+      <div class="tl-phase">PHASE 6</div>
+      <div class="tl-title">Security Analysis</div>
+      <div class="tl-result"><strong>10/10 attack vectors blocked</strong> · Replay, impersonation, hijack, oracle manipulation — all mitigated</div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="footer-info">
+    DCBA — Dual-Chain Blockchain Architecture<br>
+    Department of CSE · Bangladesh University of Engineering and Technology (BUET)<br>
+    M.Sc. Research Project · 2025–2026
+  </div>
+  <div class="footer-badge">
+    <span class="badge green">86 TESTS PASSING</span>
+    <span class="badge blue">ETHEREUM PoA + FABRIC 2.5</span>
+    <span class="badge purple">0 BENCHMARK FAILURES</span>
+    <span class="badge green">10/10 ATTACKS BLOCKED</span>
+  </div>
+</footer>
+
+<script>
+// TPS Chart
+const tpsCtx = document.getElementById('tpsChart').getContext('2d');
+new Chart(tpsCtx, {
+  type: 'bar',
+  data: {
+    labels: ['DCS Scoring', 'Delivery Lifecycle', 'Query Winner'],
+    datasets: [{
+      label: 'Throughput (TPS)',
+      data: [4.6, 4.4, 20.4],
+      backgroundColor: ['rgba(0,212,255,0.4)', 'rgba(124,58,237,0.4)', 'rgba(16,185,129,0.4)'],
+      borderColor: ['#00d4ff', '#7c3aed', '#10b981'],
+      borderWidth: 1,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+    },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 } } },
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 } }, beginAtZero: true }
+    }
+  }
+});
+
+// Latency Chart
+const latCtx = document.getElementById('latChart').getContext('2d');
+new Chart(latCtx, {
+  type: 'bar',
+  data: {
+    labels: ['DCS Scoring', 'Delivery Lifecycle', 'Query Winner'],
+    datasets: [
+      {
+        label: 'Avg Latency (s)',
+        data: [1.27, 1.25, 0.00],
+        backgroundColor: 'rgba(0,212,255,0.3)',
+        borderColor: '#00d4ff',
+        borderWidth: 1,
+        borderRadius: 4,
+      },
+      {
+        label: 'Max Latency (s)',
+        data: [2.59, 2.61, 0.01],
+        backgroundColor: 'rgba(245,158,11,0.3)',
+        borderColor: '#f59e0b',
+        borderWidth: 1,
+        borderRadius: 4,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { labels: { color: '#94a3b8', font: { size: 11 } } }
+    },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 } } },
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 } }, beginAtZero: true }
+    }
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "dcba-benchmark",
+  "version": "1.0.0",
+  "description": "Hyperledger Caliper benchmark for DCBA UOC chaincode",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.13.1",
+    "@hyperledger/caliper-cli": "^0.7.1",
+    "@hyperledger/caliper-fabric": "^0.7.1",
+    "@hyperledger/fabric-gateway": "^1.7.1"
+  }
+}

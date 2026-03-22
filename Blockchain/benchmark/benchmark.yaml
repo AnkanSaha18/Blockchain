@@ -1,0 +1,31 @@
+test:
+  name: DCBA-UOC-Benchmark
+  description: Hyperledger Fabric UOC chaincode performance benchmark
+
+  workers:
+    number: 2
+
+  rounds:
+    - label: DCS-Score-Submission
+      description: UAV DCS score submission throughput
+      txNumber: 50
+      rateControl:
+        type: fixed-rate
+        opts:
+          tps: 5
+      workload:
+        module: benchmark/workload/dcs_submit.js
+        arguments:
+          contractId: dcba-uoc
+
+    - label: GPS-Log-Throughput
+      description: UAV GPS log transaction throughput
+      txNumber: 50
+      rateControl:
+        type: fixed-rate
+        opts:
+          tps: 5
+      workload:
+        module: benchmark/workload/gps_log.js
+        arguments:
+          contractId: dcba-uoc

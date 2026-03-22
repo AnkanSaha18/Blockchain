@@ -1,0 +1,9 @@
+node_modules/
+artifacts/
+cache/
+*.env
+.env
+dist/
+build/
+chaincode/dcba-uoc/vendor/
+Blockchain/node_modules/
