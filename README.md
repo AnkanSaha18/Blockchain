@@ -44,14 +44,14 @@ DCBA solves the problem of transporting urgent medical supplies (drugs, vaccines
 ## 2. System Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
+┌───────────────────────────────────────────────────────────────────────────┐
 │                        DCBA Dual-Chain Architecture                       │
-│                                                                            │
-│  ┌─────────────────────────────┐   SC7 Oracle   ┌──────────────────────┐ │
-│  │  PDC — Patient Data Chain   │◄──────────────►│ UOC — UAV Ops Chain  │ │
+│                                                                           │
+│  ┌─────────────────────────────┐   SC7 Oracle   ┌───────────────────────┐ │
+│  │  PDC — Patient Data Chain   │◄──────────────►│ UOC — UAV Ops Chain   │ │
 │  │  (Ethereum / PoA)           │  (Shared Relay) │ (Hyperledger Fabric) │ │
 │  │                             │                 │                      │ │
-│  │  SC1 Identity Registry ─────┼─────────────────► SC1 (also on UOC)   │ │
+│  │  SC1 Identity Registry ─────┼─────────────────► SC1 (also on UOC)    │ │
 │  │  SC2 Patient Consent        │                 │  SC4 DCS Scoring     │ │
 │  │  SC3 Medical Records        │                 │  SC5 Delivery Orders │ │
 │  │                             │                 │  SC6 Delivery        │ │
@@ -61,10 +61,10 @@ DCBA solves the problem of transporting urgent medical supplies (drugs, vaccines
 │                                                  │  LifecycleContract   │ │
 │                                                  │  (Go)                │ │
 │                                                  └──────────────────────┘ │
-│                                                                            │
-│  Off-chain Storage: IPFS (encrypted medical data + GPS coordinates)        │
+│                                                                           │
+│  Off-chain Storage: IPFS (encrypted medical data + GPS coordinates)       │
 │  Off-chain Relay:   oracle/bridge.js (event listener + latency ~5.4s)     │
-└──────────────────────────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Contract-to-Chain Assignment (from research report Table 4.2)
