@@ -9,22 +9,23 @@ A hybrid blockchain system that combines **Ethereum smart contracts** (Patient D
 1. [Project Overview](#1-project-overview)
 2. [System Architecture](#2-system-architecture)
 3. [Why Two Blockchains?](#3-why-two-blockchains)
-4. [Patient Data Chain — Ethereum Smart Contracts](#4-patient-data-chain--ethereum-smart-contracts)
-5. [UAV Operational Chain — Hyperledger Fabric Chaincode](#5-uav-operational-chain--hyperledger-fabric-chaincode)
-6. [Cross-Chain Oracle Bridge](#6-cross-chain-oracle-bridge)
-7. [UAV Fleet Simulation](#7-uav-fleet-simulation)
-8. [End-to-End Medical Delivery Flow](#8-end-to-end-medical-delivery-flow)
-9. [Directory Structure](#9-directory-structure)
-10. [Prerequisites](#10-prerequisites)
-11. [Setup & Deployment — Ethereum (PDC)](#11-setup--deployment--ethereum-pdc)
-12. [Setup & Deployment — Hyperledger Fabric (UOC)](#12-setup--deployment--hyperledger-fabric-uoc)
-13. [Running the Oracle Bridge](#13-running-the-oracle-bridge)
-14. [Running Benchmarks (Hyperledger Caliper)](#14-running-benchmarks-hyperledger-caliper)
-15. [Smart Contract Reference](#15-smart-contract-reference)
-16. [Chaincode Reference](#16-chaincode-reference)
-17. [Security Design](#17-security-design)
-18. [Gas Costs](#18-gas-costs)
-19. [Known Issues & Bug Fixes](#19-known-issues--bug-fixes)
+4. [PDC — Patient Data Chain (SC1, SC2, SC3)](#4-pdc--patient-data-chain-sc1-sc2-sc3)
+5. [UOC — UAV Operational Chain (SC4, SC5, SC6)](#5-uoc--uav-operational-chain-sc4-sc5-sc6)
+6. [SC7 — Cross-Chain Oracle Bridge (Shared)](#6-sc7--cross-chain-oracle-bridge-shared)
+7. [Hyperledger Fabric Chaincode (UOC)](#7-hyperledger-fabric-chaincode-uoc)
+8. [UAV Fleet Simulation](#8-uav-fleet-simulation)
+9. [End-to-End Medical Delivery Flow](#9-end-to-end-medical-delivery-flow)
+10. [Directory Structure](#10-directory-structure)
+11. [Prerequisites](#11-prerequisites)
+12. [Setup & Deployment — Ethereum (PDC)](#12-setup--deployment--ethereum-pdc)
+13. [Setup & Deployment — Hyperledger Fabric (UOC)](#13-setup--deployment--hyperledger-fabric-uoc)
+14. [Running the Oracle Bridge](#14-running-the-oracle-bridge)
+15. [Running Benchmarks (Hyperledger Caliper)](#15-running-benchmarks-hyperledger-caliper)
+16. [Smart Contract Reference](#16-smart-contract-reference)
+17. [Chaincode Reference](#17-chaincode-reference)
+18. [Security Design](#18-security-design)
+19. [Gas Costs](#19-gas-costs)
+20. [Known Issues & Bug Fixes](#20-known-issues--bug-fixes)
 
 ---
 
@@ -43,26 +44,42 @@ DCBA solves the problem of transporting urgent medical supplies (drugs, vaccines
 ## 2. System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     DCBA Dual-Chain Architecture                    │
-│                                                                     │
-│  ┌──────────────────────────────┐   SC7 Oracle   ┌────────────────┐ |
-│  │   PDC — Patient Data Chain   │◄──────────────►│ UOC — UAV Ops  │ |
-│  │   (Ethereum / PoA)           │   (Bridge)     │ Chain (Fabric) │ |
-│  │                              │                │                │ |
-│  │  SC1 Identity Registry       │                │  DCSContract   │ |
-│  │  SC2 Patient Consent         │                │  (dcs_scoring  │ |
-│  │  SC3 Medical Records         │                │   .go)         │ |
-│  │  SC4 DCS Scoring             │                │                │ |
-│  │  SC5 Delivery Orders         │                │  Lifecycle     │ |
-│  │  SC6 Delivery Lifecycle      │                │  Contract      │ |
-│  │  SC7 Oracle Bridge           │                │  (delivery_    │ |
-│  └──────────────────────────────┘                │  lifecycle.go) │ |
-│                                                  └────────────────┘ |
-│  Off-chain Storage: IPFS (encrypted medical data + GPS coordinates) │
-│  Off-chain Relay:   oracle/bridge.js (event listener + latency log) │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        DCBA Dual-Chain Architecture                       │
+│                                                                            │
+│  ┌─────────────────────────────┐   SC7 Oracle   ┌──────────────────────┐ │
+│  │  PDC — Patient Data Chain   │◄──────────────►│ UOC — UAV Ops Chain  │ │
+│  │  (Ethereum / PoA)           │  (Shared Relay) │ (Hyperledger Fabric) │ │
+│  │                             │                 │                      │ │
+│  │  SC1 Identity Registry ─────┼─────────────────► SC1 (also on UOC)   │ │
+│  │  SC2 Patient Consent        │                 │  SC4 DCS Scoring     │ │
+│  │  SC3 Medical Records        │                 │  SC5 Delivery Orders │ │
+│  │                             │                 │  SC6 Delivery        │ │
+│  │  SC7 Oracle Bridge ─────────┼──── relay ─────►│      Lifecycle       │ │
+│  │  (rxHash: VALID → USED)     │                 │                      │ │
+│  └─────────────────────────────┘                 │  DCSContract (Go)    │ │
+│                                                  │  LifecycleContract   │ │
+│                                                  │  (Go)                │ │
+│                                                  └──────────────────────┘ │
+│                                                                            │
+│  Off-chain Storage: IPFS (encrypted medical data + GPS coordinates)        │
+│  Off-chain Relay:   oracle/bridge.js (event listener + latency ~5.4s)     │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
+
+### Contract-to-Chain Assignment (from research report Table 4.2)
+
+| Contract | Chain | Reason |
+|----------|-------|--------|
+| SC1 — Identity Registry | **Both** (PDC + UOC) | Every contract on both chains needs identity verification |
+| SC2 — Patient Consent | **PDC** | Patient data sovereignty; consent is a medical-layer concern |
+| SC3 — Medical Records | **PDC** | Sensitive health data; governed by patient consent |
+| SC4 — DCS Scoring | **UOC** | Operational; high-frequency UAV competition rounds |
+| SC5 — Delivery Orders | **UOC** | Operational coordinator; PARS queue and SLA management |
+| SC6 — Delivery Lifecycle | **UOC** | High-frequency GPS logging (~1 tx/sec) |
+| SC7 — Oracle Bridge | **Shared** (PDC→UOC relay) | Bridges prescription verification from PDC to UOC |
+
+> **Implementation note:** All 7 Solidity contracts are deployed on a single Ethereum network for the demo (Hardhat). In the full production system, SC4/SC5/SC6 would run on Hyperledger Fabric (UOC). The Fabric chaincode (`DCSContract`, `LifecycleContract`) represents the UOC implementation of SC4 and SC6. SC7 comment in the code explicitly states: *"For Remix/testnet demo, both live on one chain."*
 
 ### Actors
 
@@ -97,11 +114,13 @@ Ethereum handles the **trustless, public business logic** (who can deliver what,
 
 ---
 
-## 4. Patient Data Chain — Ethereum Smart Contracts
+## 4. PDC — Patient Data Chain (SC1, SC2, SC3)
 
-Seven Solidity contracts deployed in strict dependency order:
+Three contracts live on the **Patient Data Chain (Ethereum PoA)**. These handle identity, patient consent, and medical records — data that demands strong privacy and patient sovereignty.
 
-### SC1 — Identity Registry (`SC1_IdentityRegistry.sol`)
+> SC1 is also deployed identically on the UOC, since every UOC contract needs identity verification too.
+
+### SC1 — Identity Registry (`SC1_IdentityRegistry.sol`) — PDC + UOC
 
 **Purpose:** The root-of-trust for the entire system. Every other contract calls back to SC1 to verify actor identity before executing sensitive operations.
 
@@ -113,7 +132,7 @@ Seven Solidity contracts deployed in strict dependency order:
 
 **Why it's needed:** Without a shared identity layer, each contract would need its own allowlist. SC1 centralises this so revoking one actor instantly cuts their access across all seven contracts.
 
-### SC2 — Patient Consent (`SC2_PatientConsent.sol`)
+### SC2 — Patient Consent (`SC2_PatientConsent.sol`) — PDC only
 
 **Purpose:** Implements patient-controlled, time-limited access tokens for medical data. Doctors cannot write a patient's records without an active consent token.
 
@@ -125,7 +144,7 @@ Seven Solidity contracts deployed in strict dependency order:
 
 **Why it's needed:** Medical data is sensitive. This contract enforces GDPR-style "right to access" at the smart-contract level — not just UI-level gatekeeping.
 
-### SC3 — Medical Records (`SC3_MedicalRecords.sol`)
+### SC3 — Medical Records (`SC3_MedicalRecords.sol`) — PDC only
 
 **Purpose:** Permanent, tamper-evident storage of medical record metadata. Actual data lives on IPFS (encrypted); only the hash is stored on-chain.
 
@@ -141,7 +160,13 @@ Seven Solidity contracts deployed in strict dependency order:
 
 **Why it's needed:** Provides an immutable audit trail of every medical record. Patients, auditors, and courts can verify that a record existed at a specific time without seeing the actual medical content.
 
-### SC4 — DCS Scoring (`SC4_DCSScoring.sol`)
+---
+
+## 5. UOC — UAV Operational Chain (SC4, SC5, SC6)
+
+Three contracts live on the **UAV Operational Chain (Hyperledger Fabric)**. These handle high-frequency operational logic — UAV selection, order management, and live delivery tracking. In the demo, they run as Solidity on Ethereum; in production they run on Fabric (with DCSContract and LifecycleContract as the Fabric implementations of SC4 and SC6).
+
+### SC4 — DCS Scoring (`SC4_DCSScoring.sol`) — UOC
 
 **Purpose:** A competitive scoring mechanism to select the best-capable UAV for each mission.
 
@@ -163,7 +188,7 @@ Seven Solidity contracts deployed in strict dependency order:
 
 **Why it's needed:** Without a transparent scoring system, the DS could arbitrarily assign missions. On-chain scoring ensures the best-qualified UAV is always selected and the process is auditable.
 
-### SC5 — Delivery Orders (`SC5_DeliveryOrders.sol`)
+### SC5 — Delivery Orders (`SC5_DeliveryOrders.sol`) — UOC
 
 **Purpose:** The order management contract that bridges medical urgency to operational SLA.
 
@@ -184,7 +209,7 @@ Seven Solidity contracts deployed in strict dependency order:
 
 **Why it's needed:** Encodes the urgency-to-deadline mapping on-chain, preventing human discretion from delaying critical deliveries. A CRITICAL order's 3-minute SLA cannot be silently extended.
 
-### SC6 — Delivery Lifecycle (`SC6_DeliveryLifecycle.sol`)
+### SC6 — Delivery Lifecycle (`SC6_DeliveryLifecycle.sol`) — UOC
 
 **Purpose:** Real-time delivery tracking — from warehouse pickup to patient doorstep.
 
@@ -199,7 +224,13 @@ Seven Solidity contracts deployed in strict dependency order:
 
 **Why it's needed:** Creates an indelible GPS audit trail. If a delivery fails, is tampered with, or deviates from approved airspace, the entire flight history is permanently on-chain for investigation.
 
-### SC7 — Oracle Bridge (`SC7_OracleBridge.sol`)
+---
+
+## 6. SC7 — Cross-Chain Oracle Bridge (Shared)
+
+SC7 sits between both chains — it is deployed on the PDC (Ethereum) but its data is consumed by the UOC (Fabric/SC5). It is the only point of communication between the two chains.
+
+### SC7 — Oracle Bridge (`SC7_OracleBridge.sol`) — Shared (PDC→UOC relay)
 
 **Purpose:** Cross-chain linking — prevents the same prescription from being used to order multiple deliveries (replay attack prevention).
 
@@ -220,9 +251,9 @@ PENDING  →  VALID  →  USED
 
 ---
 
-## 5. UAV Operational Chain — Hyperledger Fabric Chaincode
+## 7. Hyperledger Fabric Chaincode (UOC)
 
-Go chaincode deployed to the `dcbachannel` Fabric channel as `dcba-uoc`. Contains two contracts that mirror the Ethereum SC4 and SC6 logic for high-throughput, low-latency operations.
+Go chaincode deployed to the `dcbachannel` Fabric channel as `dcba-uoc`. Implements the UOC operational side — mirrors SC4 (DCS Scoring) and SC6 (Delivery Lifecycle) for high-throughput, low-latency operations on Fabric.
 
 ### DCSContract (`dcs_scoring.go`)
 
@@ -262,9 +293,7 @@ DISPATCHED → IN_FLIGHT → DELIVERED
 
 ---
 
-## 6. Cross-Chain Oracle Bridge
-
-### On-chain component (SC7)
+### Cross-Chain Flow via SC7
 
 ```
                   PDC (Ethereum)                UOC (Fabric)
@@ -309,7 +338,7 @@ The bridge logs each relay event with timestamp, hash, PARS score, latency (ms),
 
 ---
 
-## 7. UAV Fleet Simulation
+## 8. UAV Fleet Simulation
 
 The `simulation/` directory contains Python scripts that validate the DCS algorithm's scalability without requiring a live blockchain.
 
@@ -344,7 +373,7 @@ python3 simulation/uav_agent.py --uav-id uav-001 --round-id round-sim-001
 
 ---
 
-## 8. End-to-End Medical Delivery Flow
+## 9. End-to-End Medical Delivery Flow
 
 ```
 Step 1 — Registration (one-time)
@@ -402,7 +431,7 @@ Alternative — Deviation Path
 
 ---
 
-## 9. Directory Structure
+## 10. Directory Structure
 
 The project root (`~/dcba/`) is the primary working directory. All source files exist both at the root and mirrored under `Blockchain/` (artifact of the project merge commit).
 
@@ -474,7 +503,7 @@ dcba/
 
 ---
 
-## 10. Prerequisites
+## 11. Prerequisites
 
 ### Ethereum (PDC)
 - Node.js ≥ 18
@@ -491,7 +520,7 @@ dcba/
 > ```json
 > { "features": { "containerd-snapshotter": false } }
 > ```
-> Restart Docker after applying. See [Known Issues](#19-known-issues--bug-fixes).
+> Restart Docker after applying. See [Known Issues](#20-known-issues--bug-fixes).
 
 ### Oracle Bridge & Simulation
 - Node.js ≥ 18 (for `oracle/bridge.js`)
@@ -504,7 +533,7 @@ dcba/
 
 ---
 
-## 11. Setup & Deployment — Ethereum (PDC)
+## 12. Setup & Deployment — Ethereum (PDC)
 
 ```bash
 cd ~/dcba
@@ -558,7 +587,7 @@ await SC4.linkSC6(SC6.address);
 
 ---
 
-## 12. Setup & Deployment — Hyperledger Fabric (UOC)
+## 13. Setup & Deployment — Hyperledger Fabric (UOC)
 
 ```bash
 # Start Fabric test network with dcbachannel
@@ -590,7 +619,7 @@ Approvals: [Org1MSP: true, Org2MSP: true]  ✓
 
 ---
 
-## 13. Running the Oracle Bridge
+## 14. Running the Oracle Bridge
 
 The oracle bridge is a Node.js process that listens for `RecordAdded` events from SC3 and verifies the prescription hash status in SC7. It measures end-to-end relay latency.
 
@@ -620,7 +649,7 @@ Sample output:
 
 ---
 
-## 14. Running Benchmarks (Hyperledger Caliper)
+## 15. Running Benchmarks (Hyperledger Caliper)
 
 Two benchmark workspaces are available. Both test the same Fabric chaincode but with different workload scenarios.
 
@@ -689,7 +718,7 @@ An HTML benchmark report is generated at `report.html` in the workspace director
 
 ---
 
-## 15. Smart Contract Reference
+## 16. Smart Contract Reference
 
 ### Contract Dependency Graph
 
@@ -778,7 +807,7 @@ checkHash(bytes32 rxHash) → uint8                         // Read-only: 0=PEND
 
 ---
 
-## 16. Chaincode Reference
+## 17. Chaincode Reference
 
 ### Invoke examples using Fabric CLI
 
@@ -820,7 +849,7 @@ peer chaincode query -C dcbachannel -n dcba-uoc \
 
 ---
 
-## 17. Security Design
+## 18. Security Design
 
 ### Threat Model & Mitigations
 
@@ -863,7 +892,7 @@ const roundId = `r-${workerIndex}-${txCounter}-${Date.now()}`;
 
 ---
 
-## 18. Gas Costs
+## 19. Gas Costs
 
 All costs measured on a local Hardhat network (Solidity 0.8.20, optimizer 200 runs, block limit 60,000,000).
 
@@ -910,7 +939,7 @@ All costs measured on a local Hardhat network (Solidity 0.8.20, optimizer 200 ru
 
 ---
 
-## 19. Known Issues & Bug Fixes
+## 20. Known Issues & Bug Fixes
 
 ### Bug 1 — CRITICAL: SC4.updateReputation fails when called from SC6
 
