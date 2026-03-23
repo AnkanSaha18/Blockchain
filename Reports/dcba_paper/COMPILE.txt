@@ -1,0 +1,64 @@
+DCBA LaTeX Paper — Compilation Guide
+=====================================
+
+## File Structure
+
+dcba_paper/
+├── main.tex          ← Main paper file (ACM SIGPLAN template)
+├── references.bib    ← BibTeX bibliography (18 references)
+├── images/
+│   ├── README.md     ← Instructions for figure creation
+│   ├── architecture.pdf   ← ADD THIS: dual-chain diagram
+│   └── flow.pdf           ← ADD THIS: sequence diagram
+└── COMPILE.txt       ← This file
+
+## Compilation Commands
+
+Run these commands in order inside the dcba_paper/ directory:
+
+  pdflatex main.tex
+  bibtex main
+  pdflatex main.tex
+  pdflatex main.tex
+
+Or use latexmk (recommended — handles all passes automatically):
+
+  latexmk -pdf main.tex
+
+## Online Compilation (Overleaf)
+
+1. Create a new project on Overleaf
+2. Upload all files: main.tex, references.bib, and the images/ folder
+3. Set compiler to pdfLaTeX
+4. Click Compile
+
+The ACM SIGPLAN template packages (acmart, booktabs, algorithm,
+pgfplots, tikz, listings) are pre-installed on Overleaf.
+
+## Before Final Submission
+
+1. Replace the two \fbox placeholder figures with actual PDF figures
+   (see images/README.md for instructions)
+
+2. Update the three author blocks in main.tex:
+   - Change "Author One", "Author Two", "Author Three"
+   - Update email addresses and affiliations
+
+3. Update the \acmConference line with the actual target venue
+
+4. Review all results tables against final benchmark runs
+
+5. Run a final spell-check
+
+## Section Map (page estimates at 12–14 pages)
+
+Section 1: Introduction          (~2 pages)
+Section 2: Related Work + Gaps   (~2 pages)
+Section 3: Architecture          (~2 pages)
+Section 4: System Flow           (~1.5 pages)
+Section 5: Smart Contracts       (~2 pages)
+Section 6: Algorithms            (~1.5 pages)
+Section 7: Security Analysis     (~1 page)
+Section 8: Performance           (~2 pages)
+Section 9: Conclusion            (~0.5 pages)
+References                       (~1 page)
