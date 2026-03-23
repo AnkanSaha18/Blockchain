@@ -44,22 +44,22 @@ DCBA solves the problem of transporting urgent medical supplies (drugs, vaccines
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                     DCBA Dual-Chain Architecture                     │
-│                                                                       │
-│  ┌──────────────────────────────┐   SC7 Oracle   ┌──────────────── │
+│                     DCBA Dual-Chain Architecture                    │
+│                                                                     │
+│  ┌──────────────────────────────┐   SC7 Oracle   ┌────────────────│
 │  │   PDC — Patient Data Chain   │◄──────────────►│ UOC — UAV Ops  │
 │  │   (Ethereum / PoA)           │   (Bridge)     │ Chain (Fabric) │
-│  │                              │                │                 │
-│  │  SC1 Identity Registry       │                │  DCSContract    │
-│  │  SC2 Patient Consent         │                │  (dcs_scoring   │
-│  │  SC3 Medical Records         │                │   .go)          │
-│  │  SC4 DCS Scoring             │                │                 │
-│  │  SC5 Delivery Orders         │                │  Lifecycle      │
-│  │  SC6 Delivery Lifecycle      │                │  Contract       │
-│  │  SC7 Oracle Bridge           │                │  (delivery_     │
-│  └──────────────────────────────┘                │   lifecycle.go) │
-│                                                  └─────────────────│
-│  Off-chain Storage: IPFS (encrypted medical data + GPS coordinates)  │
+│  │                              │                │                │
+│  │  SC1 Identity Registry       │                │  DCSContract   │
+│  │  SC2 Patient Consent         │                │  (dcs_scoring  │
+│  │  SC3 Medical Records         │                │   .go)         │
+│  │  SC4 DCS Scoring             │                │                │
+│  │  SC5 Delivery Orders         │                │  Lifecycle     │
+│  │  SC6 Delivery Lifecycle      │                │  Contract      │
+│  │  SC7 Oracle Bridge           │                │  (delivery_    │
+│  └──────────────────────────────┘                │  lifecycle.go) │
+│                                                  └────────────────│
+│  Off-chain Storage: IPFS (encrypted medical data + GPS coordinates) │
 │  Off-chain Relay:   oracle/bridge.js (event listener + latency log) │
 └─────────────────────────────────────────────────────────────────────┘
 ```
