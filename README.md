@@ -6,23 +6,25 @@ A hybrid blockchain system that combines **Ethereum smart contracts** (Patient D
 
 ## Table of Contents
 
-1. [PROJECT Overview](#1-project-overview)
+1. [Project Overview](#1-project-overview)
 2. [System Architecture](#2-system-architecture)
 3. [Why Two Blockchains?](#3-why-two-blockchains)
 4. [Patient Data Chain — Ethereum Smart Contracts](#4-patient-data-chain--ethereum-smart-contracts)
 5. [UAV Operational Chain — Hyperledger Fabric Chaincode](#5-uav-operational-chain--hyperledger-fabric-chaincode)
 6. [Cross-Chain Oracle Bridge](#6-cross-chain-oracle-bridge)
-7. [End-to-End Medical Delivery Flow](#7-end-to-end-medical-delivery-flow)
-8. [Directory Structure](#8-directory-structure)
-9. [Prerequisites](#9-prerequisites)
-10. [Setup & Deployment — Ethereum (PDC)](#10-setup--deployment--ethereum-pdc)
-11. [Setup & Deployment — Hyperledger Fabric (UOC)](#11-setup--deployment--hyperledger-fabric-uoc)
-12. [Running Benchmarks (Hyperledger Caliper)](#12-running-benchmarks-hyperledger-caliper)
-13. [Smart Contract Reference](#13-smart-contract-reference)
-14. [Chaincode Reference](#14-chaincode-reference)
-15. [Security Design](#15-security-design)
-16. [Gas Costs](#16-gas-costs)
-17. [Known Issues & Bug Fixes](#17-known-issues--bug-fixes)
+7. [UAV Fleet Simulation](#7-uav-fleet-simulation)
+8. [End-to-End Medical Delivery Flow](#8-end-to-end-medical-delivery-flow)
+9. [Directory Structure](#9-directory-structure)
+10. [Prerequisites](#10-prerequisites)
+11. [Setup & Deployment — Ethereum (PDC)](#11-setup--deployment--ethereum-pdc)
+12. [Setup & Deployment — Hyperledger Fabric (UOC)](#12-setup--deployment--hyperledger-fabric-uoc)
+13. [Running the Oracle Bridge](#13-running-the-oracle-bridge)
+14. [Running Benchmarks (Hyperledger Caliper)](#14-running-benchmarks-hyperledger-caliper)
+15. [Smart Contract Reference](#15-smart-contract-reference)
+16. [Chaincode Reference](#16-chaincode-reference)
+17. [Security Design](#17-security-design)
+18. [Gas Costs](#18-gas-costs)
+19. [Known Issues & Bug Fixes](#19-known-issues--bug-fixes)
 
 ---
 
@@ -44,45 +46,51 @@ DCBA solves the problem of transporting urgent medical supplies (drugs, vaccines
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     DCBA Dual-Chain Architecture                     │
 │                                                                       │
-│  ┌──────────────────────────────┐   SC7 Oracle   ┌────────────────── │
-│  │   PDC — Patient Data Chain   │◄──────────────►│ UOC — UAV Ops    │
-│  │   (Ethereum / EVM)           │   (Bridge)     │ Chain (Fabric)   │
-│  │                              │                │                   │
-│  │  SC1 Identity Registry       │                │  DCSContract      │
-│  │  SC2 Patient Consent         │                │  (dcs_scoring.go) │
-│  │  SC3 Medical Records         │                │                   │
-│  │  SC4 DCS Scoring             │                │  LifecycleContract│
-│  │  SC5 Delivery Orders         │                │  (delivery_       │
-│  │  SC6 Delivery Lifecycle      │                │   lifecycle.go)   │
-│  │  SC7 Oracle Bridge           │                │                   │
-│  └──────────────────────────────┘                └───────────────────┘
-│                                                                       │
-│  Off-chain Storage: IPFS (encrypted medical data + GPS coordinates)   │
+│  ┌──────────────────────────────┐   SC7 Oracle   ┌──────────────── │
+│  │   PDC — Patient Data Chain   │◄──────────────►│ UOC — UAV Ops  │
+│  │   (Ethereum / PoA)           │   (Bridge)     │ Chain (Fabric) │
+│  │                              │                │                 │
+│  │  SC1 Identity Registry       │                │  DCSContract    │
+│  │  SC2 Patient Consent         │                │  (dcs_scoring   │
+│  │  SC3 Medical Records         │                │   .go)          │
+│  │  SC4 DCS Scoring             │                │                 │
+│  │  SC5 Delivery Orders         │                │  Lifecycle      │
+│  │  SC6 Delivery Lifecycle      │                │  Contract       │
+│  │  SC7 Oracle Bridge           │                │  (delivery_     │
+│  └──────────────────────────────┘                │   lifecycle.go) │
+│                                                  └─────────────────│
+│  Off-chain Storage: IPFS (encrypted medical data + GPS coordinates)  │
+│  Off-chain Relay:   oracle/bridge.js (event listener + latency log) │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Actors
 
-| Actor | Role | Abbreviation |
-|-------|------|-------------|
-| Trusted Authority | Governs identity registry; registers/revokes all actors | TA |
-| Healthcare Provider | Doctor/hospital; writes medical records, submits delivery orders | HP |
-| Patient | Grants consent; confirms delivery | PAT |
-| Warehouse | Confirms drug stock availability | WH |
-| Drone Station | Runs DCS scoring rounds; assigns UAVs; creates deliveries | DS |
-| UAV | Autonomous drone; competes for missions; logs GPS during flight | UAV |
-| Regulatory Auditor | Read-only access to full audit trail | AUD |
+The system is governed by **eight principal actors**. Seven are application-layer participants registered in SC1; one (Miner/Validator) operates at the consensus/infrastructure layer.
+
+| # | Actor | Role | Abbrev. | SC1 Role String | Registered in SC1 |
+|---|-------|------|---------|-----------------|:-----------------:|
+| 1 | Trusted Authority | Governs identity registry; registers/revokes all actors; deploys all contracts | TA | (deployer — becomes TA automatically) | Implicit |
+| 2 | Healthcare Provider | Doctor/hospital; writes medical records, submits delivery orders | HP | `"hp"` | Yes |
+| 3 | Patient | Grants/revokes consent; confirms delivery receipt | PAT | `"patient"` | Yes |
+| 4 | Drug Warehouse | Confirms drug stock availability; hands package to UAV | WH | `"warehouse"` | Yes |
+| 5 | Drone Station | Runs DCS scoring rounds; assigns UAVs; monitors flight; flags deviations | DS | `"dronestation"` | Yes |
+| 6 | UAV | Autonomous drone; competes via DCS scoring; logs GPS during flight | UAV | `"uav"` | Yes |
+| 7 | Regulatory Auditor | Read-only access to full audit trail; generates compliance reports | AUD | `"auditor"` | Yes |
+| 8 | Miner / Validator | Validates blocks on PDC (PoA); endorses transactions on UOC (Fabric Raft) | MV | — | Infrastructure only |
+
+> **Miner/Validator** is an infrastructure participant. On the PDC they run the Ethereum Proof-of-Authority validator nodes. On the UOC they form the Hyperledger Fabric Raft ordering service and peer endorsers. They are not registered in SC1 as application actors — their cryptographic participation is required at the consensus layer for every block to be finalised on both chains.
 
 ---
 
 ## 3. Why Two Blockchains?
 
-| Concern | Ethereum (PDC) | Hyperledger Fabric (UOC) |
-|---------|---------------|--------------------------|
+| Concern | Ethereum PDC | Hyperledger Fabric UOC |
+|---------|-------------|------------------------|
 | **Privacy** | Patient consent gates all access | Permissioned — only registered orgs |
-| **Data type** | Business logic, identity, consent | High-frequency operational data (GPS logs ~1/sec) |
-| **Transaction volume** | Low (records, orders) | High (GPS, status updates) |
-| **Finality** | Probabilistic (PoW/PoS) | Immediate (Raft/BFT consensus) |
+| **Data type** | Business logic, identity, consent | High-frequency operational data (GPS ~1/sec) |
+| **Transaction volume** | Low (records, orders) | High (GPS logs, status updates) |
+| **Finality** | Probabilistic (PoA) | Immediate (Raft/BFT consensus) |
 | **Auditability** | Public, tamper-evident | Channel-scoped, org-controlled |
 
 Ethereum handles the **trustless, public business logic** (who can deliver what, to whom, under what consent). Hyperledger Fabric handles the **high-throughput operational tracking** (live flight data, GPS streams) that would be prohibitively expensive on Ethereum.
@@ -98,21 +106,20 @@ Seven Solidity contracts deployed in strict dependency order:
 **Purpose:** The root-of-trust for the entire system. Every other contract calls back to SC1 to verify actor identity before executing sensitive operations.
 
 **How it works:**
-- The Trusted Authority (TA) calls `register(address, role, name)` to onboard actors
-- Seven roles: `PATIENT`, `HEALTHCARE_PROVIDER`, `UAV`, `WAREHOUSE`, `DRONE_STATION`, `AUDITOR`, `TA`
-- `isActive(address)` and `getRole(address)` are read by SC2–SC6 before every state-changing call
-- TA can `revoke(address)` to immediately remove a compromised actor's privileges
+- The Trusted Authority (TA) calls `register(address, role, publicKeyHash)` to onboard actors — role is a plain string (e.g., `"patient"`, `"hp"`, `"uav"`)
+- `isActive(address)` and `getRole(address)` are called by SC2–SC6 before every state-changing operation
+- TA can `revoke(address, reason)` to immediately remove a compromised actor's privileges across all contracts
 - TA role is transferable via `transferTA(newTA)`
 
-**Why it's needed:** Without a shared identity layer, each contract would need its own allowlist. SC1 centralises this so revoking one actor instantly cuts their access across all contracts.
+**Why it's needed:** Without a shared identity layer, each contract would need its own allowlist. SC1 centralises this so revoking one actor instantly cuts their access across all seven contracts.
 
 ### SC2 — Patient Consent (`SC2_PatientConsent.sol`)
 
-**Purpose:** Implements patient-controlled, time-limited access tokens for medical data. Doctors cannot write or read a patient's records without an active consent token.
+**Purpose:** Implements patient-controlled, time-limited access tokens for medical data. Doctors cannot write a patient's records without an active consent token.
 
 **How it works:**
-- Patient calls `grantAccess(hpAddress, duration)` where `duration = 0` means indefinite
-- HP calls `hasAccess(patient, hp)` — SC3 checks this before writing any record
+- Patient calls `grantAccess(hpAddress, durationDays)` where `durationDays = 0` means indefinite
+- SC3 calls `hasAccess(hp, patient)` before writing any record
 - Patient can `revokeAccess(hpAddress)` at any time
 - `getConsentInfo()` returns the token's creation time, expiry, and active status
 
@@ -123,11 +130,12 @@ Seven Solidity contracts deployed in strict dependency order:
 **Purpose:** Permanent, tamper-evident storage of medical record metadata. Actual data lives on IPFS (encrypted); only the hash is stored on-chain.
 
 **How it works:**
-- HP calls `addRecord(patient, ipfsHash, pars, prescriptionHash)` — three checks run:
+- HP calls `addRecord(patient, encryptedDataHash, parsScore, rxHash)` — four checks run:
   1. HP is registered and active (SC1)
   2. HP has patient's consent (SC2)
   3. PARS score is 0–100 (valid urgency rating)
-- After storing the record, SC3 automatically calls `SC7.registerHash(prescriptionHash)` to link it to the delivery chain
+  4. `rxHash` is not empty (`bytes32(0)`)
+- After storing the record, SC3 automatically calls `SC7.registerHash(rxHash)` — the prescription hash becomes **VALID** in the oracle, enabling it to be used for exactly one delivery order
 - `getRecord(recordId)` returns the IPFS hash, PARS score, author, and timestamp
 - `getParsLabel(pars)` returns human-readable triage: `CRITICAL / HIGH / MODERATE / LOW`
 
@@ -142,11 +150,16 @@ Seven Solidity contracts deployed in strict dependency order:
   ```
   DCS = (speed×30 + payload×25 + battery×20 + cpu×15 + ram×10) / 100
   ```
-- Drone Station calls `openRound(orderId)` to start a scoring window
-- Each UAV calls `submitScore(roundId, dcsScore)` — one submission per UAV per round
-- DS calls `closeRound(roundId)` — winner is the highest score
-- Winner's address is returned and used for UAV assignment
-- `updateReputation(uavId, delta)` accumulates lifetime performance (+1 per success, −1 per deviation or failure)
+  All inputs are 0–100; weights sum to 100; output is a normalised score in [0, 100].
+- Drone Station calls `openRound(orderId)` to start a scoring window — returns a `uint256 roundId`
+- Each UAV calls `submitScore(roundId, dcsScore)` — one submission per UAV per round; duplicates rejected
+- DS calls `closeRound(roundId)` — winner is the highest-scoring UAV
+- `getWinner(roundId)` returns `(address winner, uint256 score)`
+- `updateReputation(uavAddress, delta)` accumulates lifetime performance:
+  - **+5** for on-time delivery (called by SC6 on `confirmDelivery`)
+  - **−5** for late delivery (called by SC6 on `confirmDelivery`)
+  - **−10** for route deviation (called by SC6 on `flagDeviation`)
+- `linkSC6(sc6Address)` — TA authorises SC6 to call `updateReputation` (required after deployment; see Bug 1)
 
 **Why it's needed:** Without a transparent scoring system, the DS could arbitrarily assign missions. On-chain scoring ensures the best-qualified UAV is always selected and the process is auditable.
 
@@ -155,7 +168,7 @@ Seven Solidity contracts deployed in strict dependency order:
 **Purpose:** The order management contract that bridges medical urgency to operational SLA.
 
 **How it works:**
-- HP calls `submitOrder(patient, prescriptionHash, pars)` — verifies prescription via SC7
+- HP calls `submitOrder(patient, rxHash, parsScore, drugList, warehouse, droneStation)` — verifies prescription via SC7 in the same transaction
 - PARS score determines SLA deadline automatically:
 
 | PARS Tier | Range | SLA Deadline |
@@ -165,8 +178,8 @@ Seven Solidity contracts deployed in strict dependency order:
 | MODERATE  | 40–69  | 30 minutes |
 | LOW       | 0–39   | 2 hours |
 
-- `confirmStock(orderId)` — Warehouse confirms drug availability
-- `assignUAV(orderId, uavAddress)` — DS assigns the DCS winner
+- `confirmStock(orderId)` — Warehouse confirms drug availability (`PENDING → CONFIRMED`)
+- `assignUAV(orderId, uavAddress)` — DS assigns the DCS winner (`CONFIRMED → DISPATCHED`)
 - `updateStatus(orderId, status)` — tracks order through: `PENDING → CONFIRMED → DISPATCHED → IN_FLIGHT → DELIVERED / FAILED`
 
 **Why it's needed:** Encodes the urgency-to-deadline mapping on-chain, preventing human discretion from delaying critical deliveries. A CRITICAL order's 3-minute SLA cannot be silently extended.
@@ -176,11 +189,13 @@ Seven Solidity contracts deployed in strict dependency order:
 **Purpose:** Real-time delivery tracking — from warehouse pickup to patient doorstep.
 
 **How it works:**
-- DS calls `createDelivery(orderId, uavId, patient, slaDeadline)`
-- UAV calls `setInFlight(orderId)` when it takes off
+- DS calls `createDelivery(orderId, uavAddress, patient, slaDeadline)`
+- UAV calls `setInFlight(orderId)` when it takes off (`DISPATCHED → IN_FLIGHT`)
 - During flight, UAV calls `logGPS(orderId, ipfsHash)` roughly every second — the IPFS hash points to an encrypted GPS coordinate stored off-chain
-- If route deviation is detected: `flagDeviation(orderId, reason)` — status → `DEVIATED`
-- Patient calls `confirmDelivery(orderId)` — system checks if delivery was within SLA, then calls `SC4.updateReputation()` to reward the UAV (`+1`) or penalise a failed/deviated delivery (`−1`)
+- If route deviation is detected: DS calls `flagDeviation(orderId, reason)` — status → `DEVIATED`, UAV reputation **−10**
+- Patient calls `confirmDelivery(orderId)` — system checks SLA compliance and calls `SC4.updateReputation()`:
+  - **+5** if delivered within SLA deadline
+  - **−5** if delivered late
 
 **Why it's needed:** Creates an indelible GPS audit trail. If a delivery fails, is tampered with, or deviates from approved airspace, the entire flight history is permanently on-chain for investigation.
 
@@ -188,13 +203,20 @@ Seven Solidity contracts deployed in strict dependency order:
 
 **Purpose:** Cross-chain linking — prevents the same prescription from being used to order multiple deliveries (replay attack prevention).
 
-**How it works:**
-- When SC3 stores a medical record, it calls `SC7.registerHash(prescriptionHash)` → status: `PENDING`
-- When SC5 processes a delivery order, it calls `SC7.verifyHash(prescriptionHash)` → status: `VALID` (one-time)
-- After verification, the hash status changes to `USED` — any future attempt to reuse the same prescription is rejected
-- `setSC3Address(sc3)` must be called after deployment to authorise SC3 as the only hash registrar
+**Hash lifecycle:**
+```
+PENDING  →  VALID  →  USED
+(initial)   (SC3)     (SC5)
+```
 
-**Why it's needed:** Without this, a single doctor's prescription could be used to order unlimited deliveries (prescription fraud). The oracle bridge enforces a strict one-prescription → one-delivery mapping across both chains.
+**How it works:**
+- Every prescription hash starts as **PENDING** (not yet known to SC7)
+- When SC3 stores a medical record, it calls `SC7.registerHash(rxHash)` → hash becomes **VALID**
+- When SC5 processes a delivery order, it calls `SC7.verifyHash(rxHash)` → hash is consumed and becomes **USED** (one-time)
+- Any future attempt to reuse a `USED` hash is rejected — `verifyHash()` returns `false`
+- `setSC3Address(sc3)` must be called by TA after SC3 deployment to authorise SC3 as the only hash registrar (see Bug 2)
+
+**Why it's needed:** Without this, a single prescription could be used to order unlimited deliveries (prescription fraud). The oracle bridge enforces a strict one-prescription → one-delivery mapping across both chains.
 
 ---
 
@@ -242,16 +264,19 @@ DISPATCHED → IN_FLIGHT → DELIVERED
 
 ## 6. Cross-Chain Oracle Bridge
 
+### On-chain component (SC7)
+
 ```
-                  PDC (Ethereum)              UOC (Fabric)
-                  ──────────────              ────────────
+                  PDC (Ethereum)                UOC (Fabric)
+                  ──────────────                ────────────
 Doctor writes     SC3.addRecord()
-  record    →     SC7.registerHash()   ──→   Hash marked PENDING
-                  (hash: PENDING)
+  record    →     SC7.registerHash()   ──→   Hash: PENDING → VALID
+                  (hash now VALID)
 
 HP submits        SC5.submitOrder()
-  order     →     SC7.verifyHash()     ──→   Hash marked USED
-                  (hash: VALID → USED)       (cannot be reused)
+  order     →     SC7.verifyHash()     ──→   Hash: VALID → USED
+                  (hash now USED,            (cannot be reused)
+                   one-time consumed)
 
 DS opens          SC4.openRound()      ──→   DCSContract.OpenRound()
   DCS round →     SC4.closeRound()           DCSContract.CloseRound()
@@ -261,115 +286,181 @@ DS creates        SC6.createDelivery() ──→   LifecycleContract.CreateDeliv
                   SC6.confirmDelivery()       LifecycleContract.ConfirmDelivery()
 ```
 
-> The Fabric chaincode (UOC) mirrors the Ethereum contracts (PDC) for operational functions that need high throughput. SC7 is the trust anchor ensuring a medical record on PDC maps exactly once to a delivery on UOC.
+### Off-chain relay service (`oracle/bridge.js`)
+
+An off-chain relay process monitors PDC events and measures cross-chain verification latency:
+
+```javascript
+// Listens for SC3 RecordAdded events
+sc3.on("RecordAdded", async (recordId, hp, patient, rxHash, parsScore) => {
+    // Checks SC7 hash status and records relay latency
+    const status = await sc7.checkHash(rxHash);  // expects 1 = VALID
+    console.log(`Latency: ${latency}ms`);
+});
+```
+
+**Run the bridge:**
+```bash
+cd ~/dcba
+node oracle/bridge.js
+```
+
+The bridge logs each relay event with timestamp, hash, PARS score, latency (ms), and running average. Measured average oracle relay latency: **~5.4 seconds** end-to-end (PDC event → SC7 state check).
 
 ---
 
-## 7. End-to-End Medical Delivery Flow
+## 7. UAV Fleet Simulation
+
+The `simulation/` directory contains Python scripts that validate the DCS algorithm's scalability without requiring a live blockchain.
+
+### `fleet_sim.py` — DCS Scalability Test
+
+Simulates concurrent DCS score computation across fleet sizes of 10, 25, 50, 75, and 100 UAVs using Python threads. Each thread mirrors the `SC4.computeScore()` weighted formula.
+
+```bash
+cd ~/dcba
+python3 simulation/fleet_sim.py
+```
+
+**Measured results (`simulation/scalability_results.json`):**
+
+| Fleet Size | Round Time | Within 140ms threshold? |
+|-----------|-----------|------------------------|
+| 10 UAVs | 0.89 ms | ✅ |
+| 25 UAVs | 3.71 ms | ✅ |
+| 50 UAVs | 4.32 ms | ✅ |
+| 75 UAVs | 7.88 ms | ✅ |
+| 100 UAVs | 8.37 ms | ✅ |
+
+All fleet sizes complete DCS rounds well under the 140 ms target defined in the research objectives.
+
+### `uav_agent.py` — Individual UAV Agent
+
+Simulates one UAV computing its DCS score and generating GPS hashes, with optional Web3 connection to submit on-chain.
+
+```bash
+python3 simulation/uav_agent.py --uav-id uav-001 --round-id round-sim-001
+```
+
+---
+
+## 8. End-to-End Medical Delivery Flow
 
 ```
 Step 1 — Registration (one-time)
-  TA.register(patient, PATIENT)
-  TA.register(doctor, HEALTHCARE_PROVIDER)
-  TA.register(warehouse, WAREHOUSE)
-  TA.register(droneStation, DRONE_STATION)
-  TA.register(uav1, UAV)
-  TA.register(uav2, UAV)
+  TA.register(patient,      "patient")
+  TA.register(doctor,       "hp")
+  TA.register(warehouse,    "warehouse")
+  TA.register(droneStation, "dronestation")
+  TA.register(uav1,         "uav")
+  TA.register(uav2,         "uav")
 
 Step 2 — Patient Consent
   patient → SC2.grantAccess(doctor, 7 days)
 
 Step 3 — Medical Record
-  doctor → SC3.addRecord(patient, ipfsHash, pars=95, prescriptionHash)
-           └→ SC7.registerHash(prescriptionHash)   [cross-chain link]
+  doctor → SC3.addRecord(patient, ipfsHash, parsScore=95, rxHash)
+           └→ SC7.registerHash(rxHash)   [hash: PENDING → VALID]
 
 Step 4 — Delivery Order
-  doctor → SC5.submitOrder(patient, prescriptionHash, pars=95)
-           └→ SC7.verifyHash(prescriptionHash)     [one-time use]
+  doctor → SC5.submitOrder(patient, rxHash, parsScore=95, "Insulin 10u", warehouse, droneStation)
+           └→ SC7.verifyHash(rxHash)     [hash: VALID → USED, one-time consumption]
            └→ SLA = 3 minutes (CRITICAL tier)
 
 Step 5 — Stock Confirmation
-  warehouse → SC5.confirmStock(orderId)
+  warehouse → SC5.confirmStock(orderId)  [PENDING → CONFIRMED]
 
 Step 6 — DCS Scoring
-  droneStation → SC4.openRound(orderId)      / DCSContract.OpenRound()
+  droneStation → SC4.openRound(orderId)       / DCSContract.OpenRound()
   uav1         → SC4.submitScore(roundId, 85) / DCSContract.SubmitScore()
   uav2         → SC4.submitScore(roundId, 92) / DCSContract.SubmitScore()
   droneStation → SC4.closeRound(roundId)      / DCSContract.CloseRound()
                  └→ winner = uav2 (score 92)
 
-Step 7 — UAV Assignment
-  droneStation → SC5.assignUAV(orderId, uav2)
+Step 7 — UAV Assignment & Delivery Creation
+  droneStation → SC5.assignUAV(orderId, uav2)          [CONFIRMED → DISPATCHED]
   droneStation → SC6.createDelivery(orderId, uav2, patient, slaDeadline)
                  / LifecycleContract.CreateDelivery()
 
 Step 8 — Flight
-  uav2 → SC6.setInFlight(orderId)  / LifecycleContract.SetInFlight()
-  uav2 → SC6.logGPS(orderId, Qm…)  / LifecycleContract.LogGPS()  [every ~1s]
-  uav2 → SC6.logGPS(orderId, Qm…)
+  uav2 → SC6.setInFlight(orderId)       / LifecycleContract.SetInFlight()
+         └→ [DISPATCHED → IN_FLIGHT]
+  uav2 → SC6.logGPS(orderId, QmHash…)  / LifecycleContract.LogGPS()  [every ~1s]
+  uav2 → SC6.logGPS(orderId, QmHash…)
   ...
 
 Step 9 — Delivery Confirmation
   patient → SC6.confirmDelivery(orderId)
             └→ withinSLA = (now ≤ slaDeadline)
-            └→ SC4.updateReputation(uav2, +1)   / DCSContract.UpdateReputation()
+            └→ SC4.updateReputation(uav2, +5)  [on-time bonus]
+               / DCSContract.UpdateReputation()
+
+Alternative — Deviation Path
+  droneStation → SC6.flagDeviation(orderId, "route anomaly")
+                 └→ SC4.updateReputation(uav2, -10)  [deviation penalty]
 ```
 
 ---
 
-## 8. Directory Structure
+## 9. Directory Structure
+
+The project root (`~/dcba/`) is the primary working directory. All source files exist both at the root and mirrored under `Blockchain/` (artifact of the project merge commit).
 
 ```
 dcba/
 ├── README.md
-├── package.json                        # Caliper benchmark dependencies (~/dcba)
+├── hardhat.config.js                   # Hardhat + Solidity 0.8.20 config
+├── package.json                        # Node.js + Caliper dependencies
+├── deployed-addresses.json             # Contract addresses (after deploy.js)
+├── gas-report.txt                      # Gas cost report (generated by tests)
+├── BUG_REPORT.md                       # Critical bug documentation
 │
-├── Blockchain/                         # All blockchain code
-│   ├── contracts/                      # Ethereum Solidity smart contracts
-│   │   ├── SC1_IdentityRegistry.sol
-│   │   ├── SC2_PatientConsent.sol
-│   │   ├── SC3_MedicalRecords.sol
-│   │   ├── SC4_DCSScoring.sol
-│   │   ├── SC5_DeliveryOrders.sol
-│   │   ├── SC6_DeliveryLifecycle.sol
-│   │   └── SC7_OracleBridge.sol
-│   │
-│   ├── chaincode/
-│   │   └── dcba-uoc/                   # Hyperledger Fabric Go chaincode
-│   │       ├── main.go                 # Chaincode entry point
-│   │       ├── dcs_scoring.go          # DCS scoring + reputation (mirrors SC4)
-│   │       ├── delivery_lifecycle.go   # Delivery tracking + GPS (mirrors SC6)
-│   │       ├── go.mod
-│   │       └── vendor/                 # Vendored Go dependencies
-│   │
-│   ├── scripts/
-│   │   ├── deploy.js                   # Hardhat deployment (all 7 contracts)
-│   │   └── test_flow.js               # End-to-end workflow test
-│   │
-│   ├── network/                        # Hyperledger Fabric test network
-│   │   ├── network.sh                  # Network up/down/deployCC
-│   │   ├── organizations/              # Crypto material (generated)
-│   │   └── scripts/                    # Channel, chaincode, env scripts
-│   │
-│   ├── benchmark/                      # Caliper benchmark (Blockchain workspace)
-│   │   ├── network.yaml                # Fabric network config for Caliper
-│   │   ├── benchmark.yaml              # Test rounds config
-│   │   └── workload/
-│   │       ├── dcs_submit.js           # DCS scoring workload
-│   │       └── gps_log.js              # GPS logging workload
-│   │
-│   ├── test/                           # Hardhat test suites
-│   │   ├── SC1.test.js … SC7.test.js
-│   │   ├── Gas.test.js
-│   │   └── Security.test.js
-│   │
-│   ├── hardhat.config.js               # Hardhat + Solidity config
-│   ├── deployed-addresses.json         # Live contract addresses
-│   ├── gas-report.txt                  # Gas usage report
-│   ├── BUG_REPORT.md                   # Critical bug documentation
-│   └── package.json                    # Node.js dependencies
+├── contracts/                          # Ethereum Solidity smart contracts
+│   ├── SC1_IdentityRegistry.sol
+│   ├── SC2_PatientConsent.sol
+│   ├── SC3_MedicalRecords.sol
+│   ├── SC4_DCSScoring.sol
+│   ├── SC5_DeliveryOrders.sol
+│   ├── SC6_DeliveryLifecycle.sol
+│   └── SC7_OracleBridge.sol
 │
-└── benchmark/                          # Caliper benchmark (dcba workspace)
+├── chaincode/
+│   └── dcba-uoc/                       # Hyperledger Fabric Go chaincode
+│       ├── main.go                     # Chaincode entry point
+│       ├── dcs_scoring.go              # DCS scoring + reputation (mirrors SC4)
+│       ├── delivery_lifecycle.go       # Delivery tracking + GPS (mirrors SC6)
+│       ├── go.mod
+│       └── vendor/                     # Vendored Go dependencies
+│
+├── scripts/
+│   ├── deploy.js                       # Deploys all 7 contracts in correct order
+│   └── test_flow.js                   # Full end-to-end workflow test script
+│
+├── test/                               # Hardhat test suites (86 tests)
+│   ├── SC1.test.js                     # Identity registry (7 tests)
+│   ├── SC2.test.js                     # Patient consent (12 tests)
+│   ├── SC3.test.js                     # Medical records (8 tests)
+│   ├── SC4.test.js                     # DCS scoring (10 tests)
+│   ├── SC5.test.js                     # Delivery orders (9 tests)
+│   ├── SC6.test.js                     # Delivery lifecycle (10 tests)
+│   ├── SC7.test.js                     # Oracle bridge (8 tests)
+│   ├── Gas.test.js                     # Gas cost measurements (12 tests)
+│   └── Security.test.js                # Attack scenario tests (10 tests)
+│
+├── oracle/
+│   └── bridge.js                       # Off-chain oracle relay (event listener)
+│
+├── simulation/
+│   ├── fleet_sim.py                    # DCS scalability: 10–100 UAV fleet
+│   ├── uav_agent.py                    # Individual UAV agent (Web3-connected)
+│   └── scalability_results.json        # Measured results (all <9ms)
+│
+├── network/                            # Hyperledger Fabric test network
+│   ├── network.sh                      # Network up/down/deployCC
+│   ├── organizations/                  # Crypto material (generated)
+│   └── scripts/                        # Channel, chaincode, env scripts
+│
+└── benchmark/                          # Hyperledger Caliper benchmark
     ├── network.yaml                    # Fabric network config
     ├── benchmark.yaml                  # 3-round benchmark config
     ├── connection-org1.yaml            # Fabric CCP (peer/orderer endpoints)
@@ -379,9 +470,11 @@ dcba/
         └── query-operations.js         # Read-only GetDelivery queries
 ```
 
+> `Blockchain/` is a subdirectory that contains an identical mirror of the above structure — both are valid working copies.
+
 ---
 
-## 9. Prerequisites
+## 10. Prerequisites
 
 ### Ethereum (PDC)
 - Node.js ≥ 18
@@ -398,7 +491,12 @@ dcba/
 > ```json
 > { "features": { "containerd-snapshotter": false } }
 > ```
-> Restart Docker after applying. See [Known Issues](#17-known-issues--bug-fixes).
+> Restart Docker after applying. See [Known Issues](#19-known-issues--bug-fixes).
+
+### Oracle Bridge & Simulation
+- Node.js ≥ 18 (for `oracle/bridge.js`)
+- Python ≥ 3.8 (for `simulation/`)
+- `pip install web3` (for `uav_agent.py`)
 
 ### Benchmarking
 - Node.js ≥ 18 (Caliper 0.7.1 recommends ≥ 22, but works on 20)
@@ -406,10 +504,10 @@ dcba/
 
 ---
 
-## 10. Setup & Deployment — Ethereum (PDC)
+## 11. Setup & Deployment — Ethereum (PDC)
 
 ```bash
-cd ~/dcba/Blockchain
+cd ~/dcba
 
 # Install dependencies
 npm install
@@ -417,36 +515,50 @@ npm install
 # Start local Hardhat node
 npx hardhat node
 
-# Deploy all 7 contracts (in another terminal)
+# Deploy all 7 contracts in the correct order (in another terminal)
 npx hardhat run scripts/deploy.js --network localhost
 
-# Run test suite
+# Run full test suite (86 tests across 9 files)
 npx hardhat test
 
 # Run end-to-end flow test
 npx hardhat run scripts/test_flow.js --network localhost
 
-# Check gas costs
+# View gas costs
 cat gas-report.txt
 ```
 
 Deployed contract addresses are saved to `deployed-addresses.json`.
 
-### Critical deployment steps (handled by deploy.js)
+### Critical deployment steps (handled automatically by `deploy.js`)
 
 After deploying all 7 contracts, two linking calls **must** be made or the system will fail:
 
 ```javascript
-// Step 5 — Link SC7 → SC3 (so SC3 can register prescription hashes)
+// Step 5 — Authorise SC3 to register prescription hashes in SC7
 await SC7.setSC3Address(SC3.address);
 
-// Step 9 — Link SC4 → SC6 (so SC6 can update UAV reputation)
+// Step 9 — Authorise SC6 to call updateReputation in SC4
 await SC4.linkSC6(SC6.address);
 ```
 
+### Full deployment order
+
+| Step | Action |
+|------|--------|
+| 1 | Deploy SC1 (no constructor args) |
+| 2 | Deploy SC7 (no constructor args) |
+| 3 | Deploy SC2 (SC1 address) |
+| 4 | Deploy SC3 (SC1, SC2, SC7 addresses) |
+| **5** | **`SC7.setSC3Address(SC3_address)` ← CRITICAL** |
+| 6 | Deploy SC4 (SC1 address) |
+| 7 | Deploy SC5 (SC1, SC7 addresses) |
+| 8 | Deploy SC6 (SC1, SC4 addresses) |
+| **9** | **`SC4.linkSC6(SC6_address)` ← CRITICAL** |
+
 ---
 
-## 11. Setup & Deployment — Hyperledger Fabric (UOC)
+## 12. Setup & Deployment — Hyperledger Fabric (UOC)
 
 ```bash
 # Start Fabric test network with dcbachannel
@@ -460,7 +572,7 @@ docker pull hyperledger/fabric-baseos:3.1
 # Deploy dcba-uoc chaincode
 ./network.sh deployCC \
   -ccn dcba-uoc \
-  -ccp ~/dcba/Blockchain/chaincode/dcba-uoc \
+  -ccp ~/dcba/chaincode/dcba-uoc \
   -ccl go \
   -c dcbachannel
 
@@ -478,7 +590,37 @@ Approvals: [Org1MSP: true, Org2MSP: true]  ✓
 
 ---
 
-## 12. Running Benchmarks (Hyperledger Caliper)
+## 13. Running the Oracle Bridge
+
+The oracle bridge is a Node.js process that listens for `RecordAdded` events from SC3 and verifies the prescription hash status in SC7. It measures end-to-end relay latency.
+
+**Prerequisites:** Hardhat node running + contracts deployed.
+
+```bash
+cd ~/dcba
+node oracle/bridge.js
+```
+
+Sample output:
+```
+🌉 DCBA Oracle Bridge started
+   SC3: 0x68B1D87F95878fE05B998F19b66F4baba5De1aed
+   SC7: 0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1
+───────────────────────────────────────────────────────
+👂 Listening for SC3 RecordAdded events...
+
+[2026-03-23T10:00:01.234Z] RecordAdded event caught!
+   recordId : 1
+   rxHash   : 0xabc123...
+   parsScore: 95
+   SC7 status: ✅ VALID
+   ⏱  Latency: 5412ms
+   ⏱  Total relayed: 1 | Avg: 5412ms
+```
+
+---
+
+## 14. Running Benchmarks (Hyperledger Caliper)
 
 Two benchmark workspaces are available. Both test the same Fabric chaincode but with different workload scenarios.
 
@@ -547,7 +689,7 @@ An HTML benchmark report is generated at `report.html` in the workspace director
 
 ---
 
-## 13. Smart Contract Reference
+## 15. Smart Contract Reference
 
 ### Contract Dependency Graph
 
@@ -563,54 +705,56 @@ SC2   SC3            SC4   SC7 (no deps — deploy second)
                             │setSC3Address()
 SC5 ──► SC7.verifyHash()    │
 SC6 ──► SC4.updateReputation()
+        (via linkSC6)
 ```
 
 ### Function Quick Reference
 
 **SC1 — Identity Registry**
 ```solidity
-register(address actor, Role role, string name)   // TA only
-revoke(address actor)                             // TA only
-isActive(address actor) → bool
-getRole(address actor) → Role
-transferTA(address newTA)                         // TA only
+register(address who, string role, string publicKeyHash)   // TA only
+revoke(address who, string reason)                         // TA only
+isActive(address who) → bool
+getRole(address who) → string
+transferTA(address newTA)                                  // TA only
 ```
 
 **SC2 — Patient Consent**
 ```solidity
-grantAccess(address hp, uint256 duration)         // Patient only
-revokeAccess(address hp)                          // Patient only
-hasAccess(address patient, address hp) → bool
-getConsentInfo(address patient, address hp) → (...)
+grantAccess(address hp, uint256 durationDays)              // Patient only; 0 = indefinite
+revokeAccess(address hp)                                   // Patient only
+hasAccess(address hp, address patient) → bool
+getConsentInfo(address patient, address hp) → (bool active, uint256 grantedAt, uint256 expiresAt)
 ```
 
 **SC3 — Medical Records**
 ```solidity
-addRecord(address patient, string ipfsHash, uint8 pars, bytes32 prescriptionHash)
-getRecord(uint256 recordId) → Record
+addRecord(address patient, string encryptedDataHash, uint8 parsScore, bytes32 rxHash)
+getRecord(uint256 recordId) → (address hp, address patient, string hash, uint8 parsScore, bytes32 rxHash, uint256 timestamp)
 getPatientRecordIds(address patient) → uint256[]
-getParsLabel(uint8 pars) → string   // "CRITICAL" | "HIGH" | "MODERATE" | "LOW"
+getParsLabel(uint8 parsScore) → string   // "CRITICAL" | "HIGH" | "MODERATE" | "LOW"
 ```
 
 **SC4 — DCS Scoring**
 ```solidity
-computeScore(uint8 speed, uint8 payload, uint8 battery, uint8 cpu, uint8 ram) → uint8
-openRound(uint256 orderId) → bytes32
-submitScore(bytes32 roundId, uint8 score)
-closeRound(bytes32 roundId) → address winner
-getWinner(bytes32 roundId) → address
-updateReputation(address uav, int256 delta)        // SC6 or DS only
-linkSC6(address sc6)                               // TA only — call after deployment
+computeScore(uint256 speed, uint256 payload, uint256 battery, uint256 cpu, uint256 ram) → uint256
+openRound(uint256 orderId) → uint256 roundId
+submitScore(uint256 roundId, uint256 score)
+closeRound(uint256 roundId)
+getWinner(uint256 roundId) → (address winner, uint256 score)
+updateReputation(address uav, int256 delta)                // SC6 (via linkSC6) or any registered actor
+linkSC6(address sc6)                                       // callable once (no onlyTA guard — deploy immediately after SC6)
 ```
 
 **SC5 — Delivery Orders**
 ```solidity
-submitOrder(address patient, bytes32 prescriptionHash, uint8 pars) → uint256
-confirmStock(uint256 orderId)                      // Warehouse only
-assignUAV(uint256 orderId, address uav)            // Drone Station only
-updateStatus(uint256 orderId, OrderStatus status)
-getOrder(uint256 orderId) → Order
-getSLASeconds(uint8 pars) → uint256
+submitOrder(address patient, bytes32 rxHash, uint8 parsScore, string drugList, address warehouse, address droneStation) → uint256 orderId
+confirmStock(uint256 orderId)                              // Assigned warehouse only
+assignUAV(uint256 orderId, address uav)                   // Drone Station only
+updateStatus(uint256 orderId, OrderStatus newStatus)
+getOrder(uint256 orderId) → (address hp, address patient, uint8 parsScore, string drugList, address assignedUAV, OrderStatus status, uint256 slaDeadline)
+getSLASeconds(uint8 parsScore) → uint256
+getParsLabel(uint8 parsScore) → string   // "CRITICAL - 3min SLA" | "HIGH - 10min SLA" | "MODERATE - 30min SLA" | "LOW - 2hr SLA"
 ```
 
 **SC6 — Delivery Lifecycle**
@@ -618,23 +762,23 @@ getSLASeconds(uint8 pars) → uint256
 createDelivery(uint256 orderId, address uav, address patient, uint256 slaDeadline)
 setInFlight(uint256 orderId)
 logGPS(uint256 orderId, string ipfsHash)
-flagDeviation(uint256 orderId, string reason)
-confirmDelivery(uint256 orderId)                   // Patient only
-getDeliveryStatus(uint256 orderId) → DeliveryStatus
-getGPSLog(uint256 orderId) → GPSEntry[]
+flagDeviation(uint256 orderId, string reason)              // DS only; triggers −10 reputation
+confirmDelivery(uint256 orderId)                           // Patient only; triggers +5 or −5 reputation
+getDeliveryStatus(uint256 orderId) → (DeliveryStatus status, address uav, uint256 gpsUpdateCount, bool withinSLA, bool deviated)
+getGPSLog(uint256 orderId) → (string[] hashes, uint256[] timestamps)
 ```
 
 **SC7 — Oracle Bridge**
 ```solidity
-setSC3Address(address sc3)                         // TA only — call after SC3 deployment
-registerHash(bytes32 hash)                         // SC3 only
-verifyHash(bytes32 hash) → bool                    // SC5 only (marks as USED)
-checkHash(bytes32 hash) → HashStatus
+setSC3Address(address sc3)                                 // TA only — call after SC3 deployment
+registerHash(bytes32 rxHash, address hp)                   // SC3 only; hash: PENDING → VALID
+verifyHash(bytes32 rxHash) → bool                         // hash: VALID → USED (no caller restriction in current impl)
+checkHash(bytes32 rxHash) → uint8                         // Read-only: 0=PENDING, 1=VALID, 2=USED
 ```
 
 ---
 
-## 14. Chaincode Reference
+## 16. Chaincode Reference
 
 ### Invoke examples using Fabric CLI
 
@@ -676,20 +820,37 @@ peer chaincode query -C dcbachannel -n dcba-uoc \
 
 ---
 
-## 15. Security Design
+## 17. Security Design
 
 ### Threat Model & Mitigations
 
 | Threat | Mitigation |
 |--------|-----------|
 | Unauthorised medical record write | SC2 consent check + SC1 role check in SC3 |
-| Prescription replay (order same medication twice) | SC7 marks hash as `USED` after first verification |
+| Prescription replay (ordering the same medication twice) | SC7 marks hash as `USED` after first verification — any reuse returns false |
 | Rogue UAV submitting GPS after landing | SC6 rejects `logGPS` unless status is `IN_FLIGHT` |
 | DS assigning a preferred UAV without scoring | SC4 on-chain scoring; winner selection is deterministic and public |
 | Compromised actor | SC1 `revoke()` immediately blocks all contract interactions |
 | Medical data exposure | Raw data stored encrypted on IPFS; only hash stored on-chain |
 | UAV impersonation | SC1 identity check on every state-changing call |
 | Duplicate UAV score submission | SC4 tracks submitted UAVs per round; rejects duplicates |
+| Wrong patient confirming delivery | SC6 checks `msg.sender == delivery.patient` |
+| Wrong warehouse confirming stock | SC5 checks `msg.sender == order.warehouse` |
+
+### Security Test Coverage (`Security.test.js` — 10 tests)
+
+| Test ID | Scenario | Expected Result |
+|---------|---------|----------------|
+| TC-SEC-01 | Same `rxHash` used for two orders (prescription replay) | Second order reverts: `"Prescription not verified by SC-7 oracle"` |
+| TC-SEC-02 | Unregistered actor writes medical record | Reverts: `"HP not registered in SC-1"` |
+| TC-SEC-03 | Revoked HP writes medical record | Reverts: `"HP not registered in SC-1"` |
+| TC-SEC-04 | Unregistered UAV submits DCS score | Reverts: `"UAV not registered in SC-1"` |
+| TC-SEC-05 | Attacker confirms someone else's delivery | Reverts: `"Only the patient can confirm delivery"` |
+| TC-SEC-06 | HP writes record without patient consent | Reverts: `"No patient consent - patient must call SC2.grantAccess first"` |
+| TC-SEC-07 | Non-TA attempts to transfer TA authority | Reverts: `"Only TA can do this"` |
+| TC-SEC-08 | Attacker directly registers hash in SC7 (bypasses SC3) | Reverts: `"Only SC-3 can register"` |
+| TC-SEC-09 | Different DS closes another DS's scoring round | Reverts: `"Only the DS that opened this round"` |
+| TC-SEC-10 | Wrong warehouse confirms another order's stock | Reverts: `"Only the assigned warehouse"` |
 
 ### MVCC Conflict Prevention (Fabric)
 
@@ -702,9 +863,9 @@ const roundId = `r-${workerIndex}-${txCounter}-${Date.now()}`;
 
 ---
 
-## 16. Gas Costs
+## 18. Gas Costs
 
-All costs measured on a local Hardhat network (Solidity 0.8.20, optimizer 200 runs).
+All costs measured on a local Hardhat network (Solidity 0.8.20, optimizer 200 runs, block limit 60,000,000).
 
 ### Deployment Costs
 
@@ -719,47 +880,72 @@ All costs measured on a local Hardhat network (Solidity 0.8.20, optimizer 200 ru
 | SC7_OracleBridge | 383,565 | 0.6% |
 | **Total** | **6,048,730** | **~10.1%** |
 
-### Key Function Costs
+### Function Costs (from `gas-report.txt`)
 
-| Function | Gas (avg) | Notes |
-|----------|----------|-------|
-| SC5.submitOrder | 369,576 | Most expensive — calls SC7 + stores order |
-| SC3.addRecord | 321,488 | Calls SC7.registerHash + stores IPFS hash |
-| SC4.submitScore | 185,111 | Updates round state |
-| SC6.createDelivery | 176,952 | Initialises delivery record |
-| SC4.openRound | ~120,000 | Creates round state |
-| SC6.logGPS | ~90,000 | Appends to GPS array |
-| SC1.register | ~80,000 | Stores actor identity |
-| SC2.grantAccess | ~60,000 | Stores consent token |
+| Contract | Function | Min Gas | Max Gas | Avg Gas |
+|----------|----------|---------|---------|---------|
+| SC1 | `register` | 118,544 | 118,736 | 118,617 |
+| SC1 | `revoke` | 27,503 | 27,635 | 27,561 |
+| SC1 | `transferTA` | — | — | 27,001 |
+| SC2 | `grantAccess` | 67,055 | 101,267 | 100,367 |
+| SC2 | `revokeAccess` | — | — | 23,924 |
+| SC3 | `addRecord` | 289,998 | 324,306 | 321,488 |
+| SC4 | `openRound` | — | — | 104,650 |
+| SC4 | `submitScore` | 154,711 | 188,911 | 185,111 |
+| SC4 | `closeRound` | 88,674 | 99,869 | 91,473 |
+| SC4 | `updateReputation` | 53,773 | 54,145 | 53,959 |
+| SC4 | `linkSC6` | — | — | 44,099 |
+| SC5 | `submitOrder` | 369,551 | 369,628 | 369,576 |
+| SC5 | `confirmStock` | — | — | 49,039 |
+| SC5 | `assignUAV` | — | — | 40,012 |
+| SC6 | `createDelivery` | 176,949 | 176,961 | 176,952 |
+| SC6 | `setInFlight` | — | — | 30,505 |
+| SC6 | `logGPS` | 84,154 | 118,582 | 107,054 |
+| SC6 | `flagDeviation` | — | — | 95,657 |
+| SC6 | `confirmDelivery` | — | — | 120,122 |
+| SC7 | `setSC3Address` | 46,031 | 46,043 | 46,042 |
+| SC7 | `verifyHash` | 50,723 | 50,735 | 50,729 |
+
+> `SC5.submitOrder` is the most expensive transaction (369,576 gas) because it atomically calls `SC7.verifyHash()` and stores the full order in one transaction.
 
 ---
 
-## 17. Known Issues & Bug Fixes
+## 19. Known Issues & Bug Fixes
 
 ### Bug 1 — CRITICAL: SC4.updateReputation fails when called from SC6
 
-**Problem:** SC6 calls `SC4.updateReputation()` after delivery confirmation. Inside SC4, `msg.sender` is the SC6 contract address. SC4 checks `SC1.isActive(msg.sender)` — but SC6 is a contract, not a registered actor → reverts every time.
+**Problem:** SC6 calls `SC4.updateReputation()` after delivery confirmation or deviation flagging. Inside SC4, `msg.sender` is the SC6 contract address. SC4 checks `SC1.isActive(msg.sender)` — but SC6 is a contract, not a registered actor → reverts every time.
+
+**Effect:** `confirmDelivery()` and `flagDeviation()` in SC6 **always fail** without this fix.
 
 **Fix applied:** Added `sc6Address` storage and `linkSC6(address)` function to SC4. Reputation update now accepts calls from either a registered actor OR the linked SC6 address:
 ```solidity
-require(sc1.isActive(msg.sender) || msg.sender == sc6Address, "Not authorised");
+require(sc1.isActive(msg.sender) || msg.sender == sc6Address, "Caller not authorized");
 ```
 
 **Action required at deployment:** Call `SC4.linkSC6(SC6_address)` after both contracts are deployed (handled in `deploy.js` step 9).
 
 ---
 
-### Bug 2 — CRITICAL: SC7.registerHash reverts (missing setSC3Address)
+### Bug 2 — CRITICAL: SC7.registerHash reverts (missing setSC3Address step)
 
 **Problem:** SC7 initialises `sc3Address = address(0)`. SC7.registerHash() checks `msg.sender == sc3Address`, which is always false until `setSC3Address()` is called. Every `SC3.addRecord()` call fails silently.
 
-**Fix applied:** `setSC3Address(address)` already exists in SC7. The fix is a deployment procedure change — it must be called between SC3 and SC4 deployment.
+**Fix applied:** Not a code bug — it's a deployment procedure step. `setSC3Address(address)` already exists in SC7.
 
 **Action required at deployment:** Call `SC7.setSC3Address(SC3_address)` immediately after SC3 is deployed (handled in `deploy.js` step 5).
 
 ---
 
-### Bug 3 — Docker 25+ breaks Fabric chaincode installation
+### Bug 3 — MINOR: SC6 had unused ISC5 interface (dead code)
+
+**Problem:** `interface ISC5` was declared in SC6 but never instantiated or used.
+
+**Fix applied:** ISC5 interface block removed from SC6.
+
+---
+
+### Bug 4 — Docker 25+ breaks Fabric chaincode installation
 
 **Problem:** Docker 23+ enables BuildKit and containerd snapshotter by default. Hyperledger Fabric v2.5's peer uses the legacy Docker build API which fails with `write unix @->/run/docker.sock: write: broken pipe`.
 
@@ -771,7 +957,7 @@ Restart Docker daemon after applying.
 
 ---
 
-### Bug 4 — Fabric peer image version mismatch
+### Bug 5 — Fabric peer image version mismatch
 
 **Problem:** After Docker restart, `fabric-peer:latest` pulls v3.1.4, but the local Fabric binaries are v2.5.0. The peer container looks for `hyperledger/fabric-ccenv:3.1` which doesn't exist locally.
 
@@ -783,7 +969,7 @@ docker pull hyperledger/fabric-baseos:3.1
 
 ---
 
-### Bug 5 — MVCC conflicts in Caliper workloads
+### Bug 6 — MVCC conflicts in Caliper workloads
 
 **Problem:** Original workload scripts created one shared round/delivery per worker and submitted many transactions to it concurrently. Fabric's MVCC rejected concurrent writes to the same ledger key (status code 11).
 
