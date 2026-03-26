@@ -116,6 +116,7 @@ describe("Gas Cost Benchmark", function () {
   });
 
   it("GAS-07: SC4.submitScore()", async function () {
+    await sc4.connect(ds).addUAVToBloom(uav.address);
     await sc4.connect(ds).openRound(1);
     const tx = await sc4.connect(uav).submitScore(1, 82);
     const receipt = await tx.wait();
@@ -128,6 +129,7 @@ describe("Gas Cost Benchmark", function () {
   });
 
   it("GAS-08: SC4.closeRound() — 1 UAV", async function () {
+    await sc4.connect(ds).addUAVToBloom(uav.address);
     await sc4.connect(ds).openRound(1);
     await sc4.connect(uav).submitScore(1, 82);
     const tx = await sc4.connect(ds).closeRound(1);

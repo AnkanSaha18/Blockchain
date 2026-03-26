@@ -96,8 +96,9 @@ describe("Security Attack Tests", function () {
   // ── ATTACK 4: Fake UAV in DCS ─────────────────────────────
   it("TC-SEC-04: Unregistered UAV cannot submit DCS score", async function () {
     await sc4.connect(ds).openRound(1);
+    // Phase 1 (Bloom filter) fires before Phase 2 (SC-1 check) — attacker blocked earlier
     await expect(sc4.connect(attacker).submitScore(1, 99)).to.be.revertedWith(
-      "UAV not registered in SC-1",
+      "Phase 1 failed: UAV not in Bloom filter",
     );
   });
 
@@ -141,6 +142,7 @@ describe("Security Attack Tests", function () {
   // ── ATTACK 9: Wrong DS tries to close DCS round ──────────
   it("TC-SEC-09: Different DS cannot close another DS's round", async function () {
     await sc1.register(attacker.address, "dronestation", "h_fake_ds");
+    await sc4.connect(ds).addUAVToBloom(uav.address);
     await sc4.connect(ds).openRound(1);
     await sc4.connect(uav).submitScore(1, 80);
     await expect(sc4.connect(attacker).closeRound(1)).to.be.revertedWith(
