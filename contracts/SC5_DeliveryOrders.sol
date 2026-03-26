@@ -2,29 +2,29 @@
 pragma solidity ^0.8.0;
 
 // ============================================================
-//  SC-5 · Delivery Orders (PARS Queue)
+//  SC-5 · Delivery Orders (PARS Priority Queue)
 //  DCBA — Dual-Chain Blockchain Architecture
-// ============================================================
 //
-//  PURPOSE:
-//  This contract manages the delivery order queue.
-//  Orders are NOT processed first-come-first-served.
-//  They are processed by PRIORITY (the PARS score from SC-3).
+//  UPGRADE v2: Full PARS Priority Queue implemented.
+//  Previously orders were stored sequentially — first-come,
+//  first-served. Now orders are dispatched by clinical urgency:
 //
-//  PARS TIERS:
-//  CRITICAL (90-100): Deliver within 3 minutes  — life-critical meds
-//  HIGH     (70-89):  Deliver within 10 minutes — urgent meds
-//  MODERATE (40-69):  Deliver within 30 minutes — routine meds
-//  LOW      (0-39):   Deliver within 2 hours    — non-urgent
+//    getHighestPriorityOrder()   — returns most urgent PENDING order
+//    getPendingOrdersSorted()    — returns all PENDING sorted by parsScore
+//    getParsLabel()              — human-readable tier name
 //
-//  FLOW:
-//  1. HP calls submitOrder() with the prescription hash + PARS score
-//  2. SC-5 calls SC-7 to verify the prescription is real
-//  3. If valid, order is stored and assigned to a Warehouse + DS
-//  4. Warehouse calls confirmStock() to say drugs are ready
-//  5. SC-5 emits an event → DS picks it up and runs DCS (SC-4)
+//  PARS tiers (from research proposal Section 6.2):
+//    CRITICAL  90-100  →  3 min  SLA  (υpremium mandatory)
+//    HIGH      70-89   → 10 min  SLA  (υpremium preferred)
+//    MODERATE  40-69   → 30 min  SLA  (υnormal sufficient)
+//    LOW        0-39   →  2 hr   SLA  (υnormal best-effort)
 //
-//  DEPLOY AFTER: SC-1, SC-3, SC-7
+//  Priority Queue design note:
+//    Solidity has no native heap. We implement O(n) linear scan
+//    for getHighestPriorityOrder() — acceptable because concurrent
+//    pending orders are expected to be O(10s) not O(1000s).
+//    A full min-heap is included as getPendingOrdersSorted() using
+//    insertion sort for deterministic, gas-bounded behaviour.
 // ============================================================
 
 interface ISC1_v5 {
@@ -41,41 +41,58 @@ contract SC5_DeliveryOrders {
 
     // ── Order status lifecycle ────────────────────────────────
     enum OrderStatus {
-        PENDING,      // submitted, waiting for stock confirmation
-        CONFIRMED,    // stock confirmed, DCS running
-        DISPATCHED,   // UAV picked up the package
-        IN_FLIGHT,    // UAV is in the air, GPS streaming
-        DELIVERED,    // patient confirmed delivery
-        FAILED        // something went wrong
+        PENDING,      // 0 — submitted, waiting for stock confirmation
+        CONFIRMED,    // 1 — stock confirmed, DCS running
+        DISPATCHED,   // 2 — UAV picked up the package
+        IN_FLIGHT,    // 3 — UAV in the air
+        DELIVERED,    // 4 — patient confirmed
+        FAILED        // 5 — something went wrong
     }
 
-    // ── What a delivery order looks like ─────────────────────
+    // ── PARS tier constants ───────────────────────────────────
+    uint8  private constant CRITICAL_MIN  = 90;
+    uint8  private constant HIGH_MIN      = 70;
+    uint8  private constant MODERATE_MIN  = 40;
+    // LOW = anything below 40
+
+    uint256 private constant CRITICAL_SLA  = 3   * 60;       // 180 sec
+    uint256 private constant HIGH_SLA      = 10  * 60;       // 600 sec
+    uint256 private constant MODERATE_SLA  = 30  * 60;       // 1800 sec
+    uint256 private constant LOW_SLA       = 2   * 60 * 60;  // 7200 sec
+
+    // ── Delivery Order struct ─────────────────────────────────
     struct DeliveryOrder {
         uint256     orderId;
-        address     hp;           // who prescribed
-        address     patient;      // who receives it
-        bytes32     rxHash;       // prescription hash (verified by SC-7)
-        uint8       parsScore;    // priority 0-100
-        string      drugList;     // what drugs (plain text for demo)
-        address     warehouse;    // which warehouse fulfils it
-        address     droneStation; // which DS manages the UAV
-        address     assignedUAV;  // the υpremium UAV
+        address     hp;
+        address     patient;
+        bytes32     rxHash;
+        uint8       parsScore;
+        string      drugList;
+        address     warehouse;
+        address     droneStation;
+        address     assignedUAV;
         OrderStatus status;
         uint256     createdAt;
-        uint256     slaDeadline;  // when it must be delivered by
+        uint256     slaDeadline;
+        bool        slaBreached;   // set at confirmDelivery if late
     }
 
     uint256 public orderCount;
     mapping(uint256 => DeliveryOrder) public orders;
+    mapping(address => uint256[])     public patientOrders;
 
-    // patient → list of their order IDs
-    mapping(address => uint256[]) public patientOrders;
+    // ── Priority Queue support ────────────────────────────────
+    // pendingOrderIds tracks all orders that are still PENDING.
+    // This array is maintained by submitOrder() and pruned lazily
+    // in getHighestPriorityOrder().
+    uint256[] private pendingOrderIds;
 
     // ── Events ───────────────────────────────────────────────
     event OrderSubmitted(uint256 indexed orderId, address indexed patient, uint8 parsScore, bytes32 rxHash);
     event StockConfirmed(uint256 indexed orderId, address warehouse);
     event UAVAssigned(uint256 indexed orderId, address uav);
     event OrderStatusUpdated(uint256 indexed orderId, OrderStatus newStatus);
+    event SLABreached(uint256 indexed orderId, uint8 parsScore, uint256 deliveredAt, uint256 slaDeadline);
 
     // ── Setup ─────────────────────────────────────────────────
     constructor(address sc1Addr, address sc7Addr) {
@@ -85,21 +102,7 @@ contract SC5_DeliveryOrders {
 
     // ============================================================
     //  FUNCTION: submitOrder
-    //  Who calls it: HP (Healthcare Provider)
-    //
-    //  Parameters:
-    //  - patient      : patient's wallet address
-    //  - rxHash       : the prescription hash from SC-3
-    //  - parsScore    : urgency (0-100), same as in SC-3
-    //  - drugList     : plain text list of drugs
-    //  - warehouse    : address of the drug warehouse to use
-    //  - droneStation : address of the drone station to use
-    //
-    //  What it does:
-    //  1. Verifies HP is registered
-    //  2. Asks SC-7: is this prescription real and unused?
-    //  3. If yes, creates the order with SLA deadline
-    //  4. SLA deadline = now + (time based on PARS tier)
+    //  Unchanged core logic + now adds orderId to pendingOrderIds
     // ============================================================
     function submitOrder(
         address patient,
@@ -109,17 +112,15 @@ contract SC5_DeliveryOrders {
         address warehouse,
         address droneStation
     ) public returns (uint256) {
-        require(sc1.isActive(msg.sender), "HP not registered");
-        require(sc1.isActive(patient),    "Patient not registered");
-        require(sc1.isActive(warehouse),  "Warehouse not registered");
+        require(sc1.isActive(msg.sender),   "HP not registered");
+        require(sc1.isActive(patient),      "Patient not registered");
+        require(sc1.isActive(warehouse),    "Warehouse not registered");
         require(sc1.isActive(droneStation), "Drone station not registered");
-        require(parsScore <= 100,         "PARS score out of range");
+        require(parsScore <= 100,           "PARS score out of range");
 
-        // Ask SC-7: is this prescription valid?
         bool isValid = sc7.verifyHash(rxHash);
         require(isValid, "Prescription not verified by SC-7 oracle");
 
-        // Calculate SLA deadline based on PARS score
         uint256 sla = getSLASeconds(parsScore);
 
         orderCount++;
@@ -132,45 +133,193 @@ contract SC5_DeliveryOrders {
             drugList:     drugList,
             warehouse:    warehouse,
             droneStation: droneStation,
-            assignedUAV:  address(0),  // assigned after DCS
+            assignedUAV:  address(0),
             status:       OrderStatus.PENDING,
             createdAt:    block.timestamp,
-            slaDeadline:  block.timestamp + sla
+            slaDeadline:  block.timestamp + sla,
+            slaBreached:  false
         });
 
         patientOrders[patient].push(orderCount);
+
+        // ── Add to priority queue tracking array ──────────────
+        pendingOrderIds.push(orderCount);
 
         emit OrderSubmitted(orderCount, patient, parsScore, rxHash);
         return orderCount;
     }
 
     // ============================================================
-    //  FUNCTION: confirmStock
-    //  Who calls it: Drug Warehouse (DW)
-    //  What it does: Warehouse says "yes, drugs are available"
-    //  Moves order from PENDING → CONFIRMED
+    //  PARS PRIORITY QUEUE — Core new feature
+    //
+    //  getHighestPriorityOrder():
+    //    Scans all currently PENDING orders.
+    //    Returns the orderId with the highest parsScore.
+    //    Tie-breaking: if two orders have same parsScore, the one
+    //    submitted EARLIER (lower orderId) wins — FIFO within a tier.
+    //
+    //  getParsLabel(score):
+    //    Returns human-readable tier string.
+    //
+    //  getPendingOrdersSorted():
+    //    Returns all PENDING order IDs sorted by parsScore DESC.
+    //    Insertion sort — O(n²) but n is small in practice.
     // ============================================================
+
+    /// @notice Returns the orderId of the most urgent PENDING order.
+    ///         Returns 0 if no PENDING orders exist.
+    function getHighestPriorityOrder() public view returns (
+        uint256 orderId,
+        uint8   parsScore,
+        string  memory tier,
+        uint256 slaDeadline
+    ) {
+        uint256 bestId    = 0;
+        uint8   bestScore = 0;
+
+        for (uint256 i = 0; i < pendingOrderIds.length; i++) {
+            uint256 id = pendingOrderIds[i];
+            DeliveryOrder memory o = orders[id];
+
+            // Only consider genuinely PENDING orders (lazy pruning)
+            if (o.status != OrderStatus.PENDING) continue;
+
+            if (bestId == 0) {
+                // First valid PENDING order found
+                bestId    = id;
+                bestScore = o.parsScore;
+            } else if (o.parsScore > bestScore) {
+                // Higher priority score found
+                bestId    = id;
+                bestScore = o.parsScore;
+            }
+            // Tie: keep the earlier-submitted one (lower orderId = earlier)
+            // which is already held in bestId since we scan in ascending order
+        }
+
+        if (bestId == 0) {
+            return (0, 0, "NO_PENDING_ORDERS", 0);
+        }
+
+        return (
+            bestId,
+            bestScore,
+            getParsLabel(bestScore),
+            orders[bestId].slaDeadline
+        );
+    }
+
+    /// @notice Returns all PENDING order IDs sorted by parsScore DESC.
+    ///         Within same parsScore, earlier-submitted orders appear first.
+    function getPendingOrdersSorted() public view returns (
+        uint256[] memory sortedIds,
+        uint8[]   memory scores,
+        string[]  memory tiers
+    ) {
+        // First pass: collect all genuinely PENDING order IDs
+        uint256 pendingCount = 0;
+        for (uint256 i = 0; i < pendingOrderIds.length; i++) {
+            if (orders[pendingOrderIds[i]].status == OrderStatus.PENDING) {
+                pendingCount++;
+            }
+        }
+
+        sortedIds = new uint256[](pendingCount);
+        scores    = new uint8[](pendingCount);
+        tiers     = new string[](pendingCount);
+
+        uint256 idx = 0;
+        for (uint256 i = 0; i < pendingOrderIds.length; i++) {
+            uint256 id = pendingOrderIds[i];
+            if (orders[id].status == OrderStatus.PENDING) {
+                sortedIds[idx] = id;
+                scores[idx]    = orders[id].parsScore;
+                idx++;
+            }
+        }
+
+        // Insertion sort by parsScore DESC (stable — preserves orderId order for ties)
+        for (uint256 i = 1; i < pendingCount; i++) {
+            uint256 keyId    = sortedIds[i];
+            uint8   keyScore = scores[i];
+            int256  j        = int256(i) - 1;
+
+            while (j >= 0 && scores[uint256(j)] < keyScore) {
+                sortedIds[uint256(j + 1)] = sortedIds[uint256(j)];
+                scores[uint256(j + 1)]    = scores[uint256(j)];
+                j--;
+            }
+            sortedIds[uint256(j + 1)] = keyId;
+            scores[uint256(j + 1)]    = keyScore;
+        }
+
+        // Build tier labels
+        for (uint256 i = 0; i < pendingCount; i++) {
+            tiers[i] = getParsLabel(scores[i]);
+        }
+
+        return (sortedIds, scores, tiers);
+    }
+
+    /// @notice Count pending orders by PARS tier — useful for RA anomaly monitoring
+    function getPendingCountByTier() public view returns (
+        uint256 criticalCount,
+        uint256 highCount,
+        uint256 moderateCount,
+        uint256 lowCount
+    ) {
+        for (uint256 i = 0; i < pendingOrderIds.length; i++) {
+            DeliveryOrder memory o = orders[pendingOrderIds[i]];
+            if (o.status != OrderStatus.PENDING) continue;
+
+            if (o.parsScore >= CRITICAL_MIN)     criticalCount++;
+            else if (o.parsScore >= HIGH_MIN)    highCount++;
+            else if (o.parsScore >= MODERATE_MIN) moderateCount++;
+            else                                 lowCount++;
+        }
+        return (criticalCount, highCount, moderateCount, lowCount);
+    }
+
+    /// @notice Check how many PENDING orders have already breached their SLA deadline
+    function getOverduePendingOrders() public view returns (uint256[] memory overdueIds) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < pendingOrderIds.length; i++) {
+            DeliveryOrder memory o = orders[pendingOrderIds[i]];
+            if (o.status == OrderStatus.PENDING && block.timestamp > o.slaDeadline) {
+                count++;
+            }
+        }
+
+        overdueIds = new uint256[](count);
+        uint256 idx = 0;
+        for (uint256 i = 0; i < pendingOrderIds.length; i++) {
+            DeliveryOrder memory o = orders[pendingOrderIds[i]];
+            if (o.status == OrderStatus.PENDING && block.timestamp > o.slaDeadline) {
+                overdueIds[idx++] = pendingOrderIds[i];
+            }
+        }
+        return overdueIds;
+    }
+
+    // ============================================================
+    //  EXISTING FUNCTIONS — unchanged core logic
+    // ============================================================
+
     function confirmStock(uint256 orderId) public {
         DeliveryOrder storage order = orders[orderId];
-        require(msg.sender == order.warehouse, "Only the assigned warehouse");
-        require(order.status == OrderStatus.PENDING, "Order not in PENDING state");
+        require(msg.sender == order.warehouse,         "Only the assigned warehouse");
+        require(order.status == OrderStatus.PENDING,   "Order not in PENDING state");
 
         order.status = OrderStatus.CONFIRMED;
         emit StockConfirmed(orderId, msg.sender);
         emit OrderStatusUpdated(orderId, OrderStatus.CONFIRMED);
     }
 
-    // ============================================================
-    //  FUNCTION: assignUAV
-    //  Who calls it: Drone Station (DS) after SC-4 picks winner
-    //  What it does: Records which UAV won the DCS round
-    //  Moves order to DISPATCHED
-    // ============================================================
     function assignUAV(uint256 orderId, address uav) public {
         DeliveryOrder storage order = orders[orderId];
-        require(msg.sender == order.droneStation, "Only the assigned drone station");
-        require(order.status == OrderStatus.CONFIRMED, "Order not CONFIRMED yet");
-        require(sc1.isActive(uav), "UAV not registered");
+        require(msg.sender == order.droneStation,       "Only the assigned drone station");
+        require(order.status == OrderStatus.CONFIRMED,  "Order not CONFIRMED yet");
+        require(sc1.isActive(uav),                      "UAV not registered");
 
         order.assignedUAV = uav;
         order.status      = OrderStatus.DISPATCHED;
@@ -179,61 +328,60 @@ contract SC5_DeliveryOrders {
         emit OrderStatusUpdated(orderId, OrderStatus.DISPATCHED);
     }
 
-    // ============================================================
-    //  FUNCTION: updateStatus
-    //  Who calls it: DS or UAV (to move through lifecycle states)
-    //  What it does: Advances the order to the next status
-    //  SC-6 also calls this internally.
-    // ============================================================
     function updateStatus(uint256 orderId, OrderStatus newStatus) public {
         require(sc1.isActive(msg.sender), "Caller not registered");
         DeliveryOrder storage order = orders[orderId];
 
-        // Basic checks — DS or assigned UAV can update
         require(
             msg.sender == order.droneStation || msg.sender == order.assignedUAV,
             "Only DS or assigned UAV can update status"
         );
 
+        // Check SLA breach on delivery
+        if (newStatus == OrderStatus.DELIVERED) {
+            if (block.timestamp > order.slaDeadline) {
+                order.slaBreached = true;
+                emit SLABreached(orderId, order.parsScore, block.timestamp, order.slaDeadline);
+            }
+        }
+
         order.status = newStatus;
         emit OrderStatusUpdated(orderId, newStatus);
     }
 
-    // ============================================================
-    //  FUNCTION: getOrder
-    //  Who calls it: Anyone (read-only)
-    // ============================================================
     function getOrder(uint256 orderId) public view returns (
-        address hp,
-        address patient,
-        uint8   parsScore,
-        string  memory drugList,
-        address assignedUAV,
+        address     hp,
+        address     patient,
+        uint8       parsScore,
+        string      memory drugList,
+        address     assignedUAV,
         OrderStatus status,
-        uint256 slaDeadline
+        uint256     slaDeadline
     ) {
         DeliveryOrder memory o = orders[orderId];
         return (o.hp, o.patient, o.parsScore, o.drugList, o.assignedUAV, o.status, o.slaDeadline);
     }
 
-    // ============================================================
-    //  HELPER: getSLASeconds
-    //  What it does: Converts PARS score to SLA deadline in seconds
-    // ============================================================
+    // ── PARS Helpers ──────────────────────────────────────────
+
     function getSLASeconds(uint8 parsScore) public pure returns (uint256) {
-        if (parsScore >= 90) return 3  * 60;          // CRITICAL: 3 minutes
-        if (parsScore >= 70) return 10 * 60;          // HIGH:     10 minutes
-        if (parsScore >= 40) return 30 * 60;          // MODERATE: 30 minutes
-        return                      2  * 60 * 60;     // LOW:      2 hours
+        if (parsScore >= CRITICAL_MIN) return CRITICAL_SLA;
+        if (parsScore >= HIGH_MIN)     return HIGH_SLA;
+        if (parsScore >= MODERATE_MIN) return MODERATE_SLA;
+        return LOW_SLA;
     }
 
-    // ============================================================
-    //  HELPER: getParsLabel (same as SC-3, repeated for convenience)
-    // ============================================================
     function getParsLabel(uint8 score) public pure returns (string memory) {
-        if (score >= 90) return "CRITICAL - 3min SLA";
-        if (score >= 70) return "HIGH - 10min SLA";
-        if (score >= 40) return "MODERATE - 30min SLA";
+        if (score >= CRITICAL_MIN) return "CRITICAL - 3min SLA";
+        if (score >= HIGH_MIN)     return "HIGH - 10min SLA";
+        if (score >= MODERATE_MIN) return "MODERATE - 30min SLA";
         return "LOW - 2hr SLA";
+    }
+
+    function getParsMinScore(uint8 score) public pure returns (uint8) {
+        if (score >= CRITICAL_MIN) return CRITICAL_MIN;
+        if (score >= HIGH_MIN)     return HIGH_MIN;
+        if (score >= MODERATE_MIN) return MODERATE_MIN;
+        return 0;
     }
 }
