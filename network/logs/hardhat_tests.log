@@ -1,0 +1,146 @@
+
+  Gas Cost Benchmark
+    SC1.register()         : 118652 gas
+    ✔ GAS-01: SC1.register()
+    SC1.revoke()           : 27515 gas
+    ✔ GAS-02: SC1.revoke()
+    SC2.grantAccess()      : 101267 gas
+    ✔ GAS-03: SC2.grantAccess()
+    SC2.revokeAccess()     : 23924 gas
+    ✔ GAS-04: SC2.revokeAccess()
+    SC3.addRecord(CRITICAL): 324306 gas
+    ✔ GAS-05: SC3.addRecord() — CRITICAL priority
+    SC4.openRound()        : 109061 gas
+    ✔ GAS-06: SC4.openRound()
+    SC4.submitScore()      : 205931 gas
+    ✔ GAS-07: SC4.submitScore()
+    SC4.closeRound(1 UAV)  : 88844 gas
+    ✔ GAS-08: SC4.closeRound() — 1 UAV
+    SC5.submitOrder()      : 416070 gas
+    ✔ GAS-09: SC5.submitOrder()
+    SC5.confirmStock()     : 49017 gas
+    ✔ GAS-10: SC5.confirmStock()
+    SC6.logGPS()           : 118582 gas
+    ✔ GAS-11: SC6.logGPS()
+    SC6.confirmDelivery()  : 120100 gas
+    ✔ GAS-12: SC6.confirmDelivery()
+
+  SC1 - Identity Registry
+    ✔ TC-SC1-01: TA can register an actor
+    ✔ TC-SC1-02: Non-TA cannot register
+    ✔ TC-SC1-03: TA can revoke an actor
+    ✔ TC-SC1-04: Revoked actor cannot be used by other contracts
+    ✔ TC-SC1-05: Cannot register already active actor
+    ✔ TC-SC1-06: Cannot revoke non-active actor
+    ✔ TC-SC1-07: TA transfer works
+
+  SC2 - Patient Consent
+    ✔ TC-SC2-01: Patient can grant access to HP
+    ✔ TC-SC2-02: Non-registered patient cannot grant access
+    ✔ TC-SC2-03: Patient cannot grant access to non-registered HP
+    ✔ TC-SC2-04: Patient can revoke access
+    ✔ TC-SC2-05: Cannot revoke non-active consent
+    ✔ TC-SC2-06: hasAccess returns true for valid consent
+    ✔ TC-SC2-07: hasAccess returns false after expiry
+    ✔ TC-SC2-08: hasAccess returns false after revoke
+    ✔ TC-SC2-09: Grant with 0 days never expires
+    ✔ TC-SC2-10: getConsentInfo returns correct data
+    ✔ TC-SC2-11: Can re-grant access after revoke
+    ✔ TC-SC2-12: Events are emitted correctly
+
+  SC3 - Medical Records
+    ✔ TC-SC3-01: HP with consent can add record
+    ✔ TC-SC3-02: HP without consent cannot add record
+    ✔ TC-SC3-03: PARS score above 100 rejected
+    ✔ TC-SC3-04: Empty rxHash rejected
+    ✔ TC-SC3-05: After addRecord, SC7 hash becomes VALID
+    ✔ TC-SC3-06: getRecord returns correct data
+    ✔ TC-SC3-07: getParsLabel returns correct tier
+    ✔ TC-SC3-08: Patient record IDs tracked correctly
+
+  SC4 - DCS Scoring
+    ✔ TC-SC4-01: computeScore formula is correct
+    ✔ TC-SC4-02: computeScore rejects values above 100
+    ✔ TC-SC4-03: DS can open a round
+    ✔ TC-SC4-04: Unregistered caller cannot open round
+    ✔ TC-SC4-05: UAV can submit score
+    ✔ TC-SC4-06: UAV cannot submit twice
+    ✔ TC-SC4-07: closeRound picks highest scorer
+    ✔ TC-SC4-08: Cannot submit to closed round
+    ✔ TC-SC4-09: updateReputation works for registered caller
+    ✔ TC-SC4-10: Reputation can go negative
+    ✔ BF-01: bloomCheck returns false for UAV not yet added to filter
+    ✔ BF-02: bloomCheck returns true after addUAVToBloom
+    ✔ BF-03: bloomCheck returns false for unregistered address
+    ✔ BF-04: Cannot add unregistered UAV to Bloom filter
+    ✔ BF-05: Cannot add same UAV to Bloom filter twice
+    ✔ BF-06: Multiple UAVs added correctly — all return true
+    ✔ BF-07: rebuildBloomFilter works correctly
+    ✔ BF-08: submitScore passes Phase 1 and Phase 2 for registered UAV in filter
+    ✔ BF-09: Phase 1 blocks UAV not in Bloom filter
+    ✔ BF-10: Phase 1 blocks completely unregistered fake UAV
+    ✔ BF-11: Rejection counters track Phase 1 and Phase 2 rejects
+    ✔ BF-12: closeRound picks highest score among Bloom-verified UAVs
+    ✔ BF-13: Bloom filter bit array is 128 bytes (1024 bits = correct parameters)
+
+  SC5 - Delivery Orders
+    ✔ TC-SC5-01: HP can submit a valid order
+    ✔ TC-SC5-02: Duplicate rxHash rejected (replay prevention)
+    ✔ TC-SC5-03: CRITICAL order gets 3-minute SLA
+    ✔ TC-SC5-04: HIGH order gets 10-minute SLA
+    ✔ TC-SC5-05: MODERATE order gets 30-minute SLA
+    ✔ TC-SC5-06: LOW order gets 2-hour SLA
+    ✔ TC-SC5-07: Warehouse can confirm stock
+    ✔ TC-SC5-08: Wrong warehouse cannot confirm
+    ✔ TC-SC5-09: DS can assign UAV after confirmation
+    ✔ PARS-05: Boundary scores map to correct tiers
+    ✔ PARS-06: getParsLabel returns correct tier strings
+    ✔ PARS-07: getHighestPriorityOrder returns 0 when no pending orders
+    ✔ PARS-08: getHighestPriorityOrder returns the only pending order
+    ✔ PARS-09: getHighestPriorityOrder picks CRITICAL over HIGH and LOW
+    ✔ PARS-10: FIFO tie-breaking — earlier order wins when parsScore equal
+    ✔ PARS-11: After confirming stock, order is no longer PENDING — priority queue updates
+    ✔ PARS-12: getPendingOrdersSorted returns orders sorted by parsScore DESC
+    ✔ PARS-13: getPendingOrdersSorted returns correct tier labels
+    ✔ PARS-14: getPendingOrdersSorted returns empty when no PENDING orders
+    ✔ PARS-15: getPendingCountByTier counts correctly across all tiers
+    ✔ PARS-16: getPendingCountByTier excludes confirmed/dispatched orders
+    ✔ PARS-17: Full PARS dispatch — CRITICAL always dispatched before LOW
+
+  SC6 - Delivery Lifecycle
+    ✔ TC-SC6-01: DS can create a delivery
+    ✔ TC-SC6-02: Cannot create duplicate delivery
+    ✔ TC-SC6-03: UAV can set IN_FLIGHT
+    ✔ TC-SC6-04: Only assigned UAV can set IN_FLIGHT
+    ✔ TC-SC6-05: UAV can log GPS during flight
+    ✔ TC-SC6-06: GPS log rejected if not IN_FLIGHT
+    ✔ TC-SC6-07: DS can flag deviation — UAV reputation penalised
+    ✔ TC-SC6-08: Patient can confirm delivery
+    ✔ TC-SC6-09: On-time delivery gives UAV +5 reputation
+    ✔ TC-SC6-10: getGPSLog returns full trail
+
+  SC7 - Oracle Bridge
+    ✔ TC-SC7-01: Hash status is PENDING before registration
+    ✔ TC-SC7-02: Hash becomes VALID after SC3.addRecord
+    ✔ TC-SC7-03: verifyHash returns true for VALID hash
+    ✔ TC-SC7-04: Hash becomes USED after verifyHash
+    ✔ TC-SC7-05: Replay attack blocked — USED hash returns false
+    ✔ TC-SC7-06: Only SC3 can call registerHash
+    ✔ TC-SC7-07: setSC3Address can only be called by TA
+    ✔ TC-SC7-08: PENDING hash verify returns false
+
+  Security Attack Tests
+    ✔ TC-SEC-01: Replay attack — same rxHash used twice is blocked
+    ✔ TC-SEC-02: Unregistered actor cannot write medical record
+    ✔ TC-SEC-03: Revoked HP cannot write medical record
+    ✔ TC-SEC-04: Unregistered UAV cannot submit DCS score
+    ✔ TC-SEC-05: Attacker cannot confirm someone else's delivery
+    ✔ TC-SEC-06: HP cannot write record without patient consent
+    ✔ TC-SEC-07: Non-TA cannot transfer TA authority
+    ✔ TC-SEC-08: Attacker cannot directly register hash in SC7
+    ✔ TC-SEC-09: Different DS cannot close another DS's round
+    ✔ TC-SEC-10: Attacker warehouse cannot confirm another order's stock
+
+
+  112 passing (9s)
+
