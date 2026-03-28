@@ -91,5 +91,5 @@ echo -e "  ${CYAN}bash start_project.sh --skip-caliper${NC}— Skip Caliper benc
 echo -e "  ${CYAN}bash stop_project.sh${NC}               — Stop everything"
 echo -e "  ${CYAN}bash stop_project.sh --clean${NC}       — Stop + full wipe"
 echo -e "  ${CYAN}bash status.sh${NC}                     — This status check"
-echo -e "  ${CYAN}bash network/run_test.sh${NC}           — Fabric chaincode test only"
+echo -e "  ${CYAN}bash run_test.sh${NC}                   — Fabric chaincode test only"
 echo ""

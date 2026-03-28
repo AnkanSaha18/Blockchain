@@ -71,7 +71,8 @@ if [ "$CLEAN_MODE" = true ]; then
 
   info "Removing Docker volumes and chaincode images..."
   docker volume prune -f 2>/dev/null || true
-  docker rmi $(docker images "dev-peer*" -q) 2>/dev/null || true
+  PEER_IMAGES=$(docker images "dev-peer*" -q 2>/dev/null)
+  [ -n "$PEER_IMAGES" ] && docker rmi $PEER_IMAGES 2>/dev/null || true
   ok "Docker cleanup done"
 
   if [ -d "$BLOCKCHAIN_DIR" ]; then

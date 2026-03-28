@@ -1,0 +1,32 @@
+
+🧪 DCBA End-to-End Test Flow
+═══════════════════════════════════════════════════════
+
+[1] Registering actors in SC1...
+   ✓ 6 actors registered
+
+[2] Patient grants consent to HP (7 days)...
+   ✓ hasAccess: true
+
+[3] HP writes medical record to SC3...
+   ✓ Record added, rxHash: 0xc56d4e8bee9436d11696d380f3b664ac2dea34fbf471db14c0453818b45882ed
+   ✓ SC7 hash status: VALID
+
+[4] HP submits delivery order to SC5...
+   ✓ Order submitted (orderId: 1)
+   ✓ SLA tier: CRITICAL - 3min SLA
+   ✓ SLA deadline (seconds from now): 194 sec
+
+[5] Warehouse confirms stock...
+   ✓ Order status: CONFIRMED
+
+[6] DS opens DCS scoring round...
+   ✓ Round 1 opened
+   UAV1 score: 81 | UAV2 score: 79
+ProviderError: Error: VM Exception while processing transaction: reverted with reason string 'Phase 1 failed: UAV not in Bloom filter'
+    at HttpProvider.request (/home/ankan/dcba/Blockchain/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at HardhatEthersSigner.sendTransaction (/home/ankan/dcba/Blockchain/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+    at send (/home/ankan/dcba/Blockchain/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+    at Proxy.submitScore (/home/ankan/dcba/Blockchain/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+    at main (file:///home/ankan/dcba/Blockchain/scripts/test_flow.js:104:3)

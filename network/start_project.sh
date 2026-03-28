@@ -147,7 +147,7 @@ else
   ./network.sh up createChannel -c "$CHANNEL" 2>&1 | tee "$LOG_DIR/fabric_network.log" | grep -E "✔|Channel|ERROR|error" || true
 
   # Verify containers are up
-  CONTAINERS=$(docker ps --filter "name=peer0.org1\|peer0.org2\|orderer" --format "{{.Names}}" | wc -l)
+  CONTAINERS=$(docker ps --format "{{.Names}}" | grep -cE "peer0\.(org1|org2)|orderer\.example" || echo 0)
   [ "$CONTAINERS" -ge 3 ] || fail "Fabric containers did not start (expected 3, got $CONTAINERS)"
   ok "Fabric network running — $CONTAINERS containers up ✓"
 fi
@@ -384,7 +384,7 @@ info "  Submitting CRITICAL order (parsScore=95) and LOW order (parsScore=20)...
 fabric_invoke "{\"function\":\"OrdersContract:SubmitOrder\",\"Args\":[\"$ORDER_ID-low\",\"hp-001\",\"patient-001\",\"rx-001\",\"20\",\"Vitamins\",\"warehouse-001\",\"ds-001\"]}"
 fabric_invoke "{\"function\":\"OrdersContract:SubmitOrder\",\"Args\":[\"$ORDER_ID-critical\",\"hp-001\",\"patient-001\",\"rx-002\",\"95\",\"Insulin\",\"warehouse-001\",\"ds-001\"]}"
 
-PRIORITY=$(fabric_query "{\"function\":\"OrdersContract:GetHighestPriorityOrder\",\"Args\":\"[\\\"$ORDER_ID-low\\\",\\\"$ORDER_ID-critical\\\"]\"}" 2>/dev/null || echo "query_failed")
+PRIORITY=$(fabric_query "{\"function\":\"OrdersContract:GetHighestPriorityOrder\",\"Args\":[\"$ORDER_ID-low\",\"$ORDER_ID-critical\"]}" 2>/dev/null || echo "query_failed")
 info "  Highest priority order: $PRIORITY"
 echo "$PRIORITY" | grep -qi "critical\|95" \
   && ok "  PARS priority queue correct — CRITICAL dispatched first ✓" \

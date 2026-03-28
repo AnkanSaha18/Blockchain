@@ -1,0 +1,144 @@
+[0;34mUsing docker and docker compose[0m
+[0;34mdeploying chaincode on channel 'dcbachannel'[0m
+executing with the following
+- CHANNEL_NAME: [0;32mdcbachannel[0m
+- CC_NAME: [0;32mdcba-uoc[0m
+- CC_SRC_PATH: [0;32m/home/ankan/dcba/Blockchain/chaincode/dcba-uoc[0m
+- CC_SRC_LANGUAGE: [0;32mgo[0m
+- CC_VERSION: [0;32m2.0[0m
+- CC_SEQUENCE: [0;32mauto[0m
+- CC_END_POLICY: [0;32mNA[0m
+- CC_COLL_CONFIG: [0;32mNA[0m
+- CC_INIT_FCN: [0;32mNA[0m
+- DELAY: [0;32m3[0m
+- MAX_RETRY: [0;32m5[0m
+- VERBOSE: [0;32mfalse[0m
+executing with the following
+- CC_NAME: [0;32mdcba-uoc[0m
+- CC_SRC_PATH: [0;32m/home/ankan/dcba/Blockchain/chaincode/dcba-uoc[0m
+- CC_SRC_LANGUAGE: [0;32mgo[0m
+- CC_VERSION: [0;32m2.0[0m
+[0;34mVendoring Go dependencies at /home/ankan/dcba/Blockchain/chaincode/dcba-uoc[0m
+~/dcba/Blockchain/chaincode/dcba-uoc ~/fabric/fabric-samples/test-network
+~/fabric/fabric-samples/test-network
+[0;32mFinished vendoring Go dependencies[0m
++ '[' false = true ']'
++ peer lifecycle chaincode package dcba-uoc.tar.gz --path /home/ankan/dcba/Blockchain/chaincode/dcba-uoc --lang golang --label dcba-uoc_2.0
++ res=0
+[0;32mChaincode is packaged[0m
+[0;34mInstalling chaincode on peer0.org1...[0m
+[0;34mUsing organization 1[0m
++ peer lifecycle chaincode queryinstalled --output json
++ jq -r 'try (.installed_chaincodes[].package_id)'
++ grep '^dcba-uoc_2.0:7ceacd57d7781cb2ef1ff26f9b94f614cd7dc026611f184a99d47f850657038f$'
++ test 1 -ne 0
++ peer lifecycle chaincode install dcba-uoc.tar.gz
++ res=0
+[34m2026-03-28 11:32:53.233 +06 0001 INFO[0m [cli.lifecycle.chaincode] [34;1msubmitInstallProposal[0m -> Installed remotely: response:<status:200 payload:"\nMdcba-uoc_2.0:7ceacd57d7781cb2ef1ff26f9b94f614cd7dc026611f184a99d47f850657038f\022\014dcba-uoc_2.0" > 
+[34m2026-03-28 11:32:53.234 +06 0002 INFO[0m [cli.lifecycle.chaincode] [34;1msubmitInstallProposal[0m -> Chaincode code package identifier: dcba-uoc_2.0:7ceacd57d7781cb2ef1ff26f9b94f614cd7dc026611f184a99d47f850657038f
+[0;32mChaincode is installed on peer0.org1[0m
+[0;34mInstall chaincode on peer0.org2...[0m
+[0;34mUsing organization 2[0m
++ peer lifecycle chaincode queryinstalled --output json
++ jq -r 'try (.installed_chaincodes[].package_id)'
++ grep '^dcba-uoc_2.0:7ceacd57d7781cb2ef1ff26f9b94f614cd7dc026611f184a99d47f850657038f$'
++ test 1 -ne 0
++ peer lifecycle chaincode install dcba-uoc.tar.gz
++ res=0
+[34m2026-03-28 11:33:42.552 +06 0001 INFO[0m [cli.lifecycle.chaincode] [34;1msubmitInstallProposal[0m -> Installed remotely: response:<status:200 payload:"\nMdcba-uoc_2.0:7ceacd57d7781cb2ef1ff26f9b94f614cd7dc026611f184a99d47f850657038f\022\014dcba-uoc_2.0" > 
+[34m2026-03-28 11:33:42.552 +06 0002 INFO[0m [cli.lifecycle.chaincode] [34;1msubmitInstallProposal[0m -> Chaincode code package identifier: dcba-uoc_2.0:7ceacd57d7781cb2ef1ff26f9b94f614cd7dc026611f184a99d47f850657038f
+[0;32mChaincode is installed on peer0.org2[0m
+++ peer lifecycle chaincode querycommitted --channelID dcbachannel --name dcba-uoc
+++ sed -n '/Version:/{s/.*Sequence: //; s/, Endorsement Plugin:.*$//; p;}'
+Error: query failed with status: 404 - namespace dcba-uoc is not defined
++ COMMITTED_CC_SEQUENCE=
++ res=0
+[0;34mUsing organization 1[0m
++ peer lifecycle chaincode queryinstalled --output json
++ jq -r 'try (.installed_chaincodes[].package_id)'
++ grep '^dcba-uoc_2.0:7ceacd57d7781cb2ef1ff26f9b94f614cd7dc026611f184a99d47f850657038f$'
++ res=0
+dcba-uoc_2.0:7ceacd57d7781cb2ef1ff26f9b94f614cd7dc026611f184a99d47f850657038f
+[0;32mQuery installed successful on peer0.org1 on channel[0m
+[0;34mUsing organization 1[0m
++ peer lifecycle chaincode approveformyorg -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile /home/ankan/fabric/fabric-samples/test-network/organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem --channelID dcbachannel --name dcba-uoc --version 2.0 --package-id dcba-uoc_2.0:7ceacd57d7781cb2ef1ff26f9b94f614cd7dc026611f184a99d47f850657038f --sequence 1
++ res=0
+[34m2026-03-28 11:33:46.248 +06 0001 INFO[0m [chaincodeCmd] [34;1mClientWait[0m -> txid [197a33e9868f88e7f016f535f390ca32bfa23085a29e4f93bcc65753d1e7cf32] committed with status (VALID) at localhost:7051
+[0;32mChaincode definition approved on peer0.org1 on channel 'dcbachannel'[0m
+[0;34mUsing organization 1[0m
+[0;34mChecking the commit readiness of the chaincode definition on peer0.org1 on channel 'dcbachannel'...[0m
+[0;34mAttempting to check the commit readiness of the chaincode definition on peer0.org1, Retry after 3 seconds.[0m
++ peer lifecycle chaincode checkcommitreadiness --channelID dcbachannel --name dcba-uoc --version 2.0 --sequence 1 --output json
++ res=0
+{
+	"approvals": {
+		"Org1MSP": true,
+		"Org2MSP": false
+	}
+}
+[0;34mChecking the commit readiness of the chaincode definition successful on peer0.org1 on channel 'dcbachannel'[0m
+[0;34mUsing organization 2[0m
+[0;34mChecking the commit readiness of the chaincode definition on peer0.org2 on channel 'dcbachannel'...[0m
+[0;34mAttempting to check the commit readiness of the chaincode definition on peer0.org2, Retry after 3 seconds.[0m
++ peer lifecycle chaincode checkcommitreadiness --channelID dcbachannel --name dcba-uoc --version 2.0 --sequence 1 --output json
++ res=0
+{
+	"approvals": {
+		"Org1MSP": true,
+		"Org2MSP": false
+	}
+}
+[0;34mChecking the commit readiness of the chaincode definition successful on peer0.org2 on channel 'dcbachannel'[0m
+[0;34mUsing organization 2[0m
++ peer lifecycle chaincode approveformyorg -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile /home/ankan/fabric/fabric-samples/test-network/organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem --channelID dcbachannel --name dcba-uoc --version 2.0 --package-id dcba-uoc_2.0:7ceacd57d7781cb2ef1ff26f9b94f614cd7dc026611f184a99d47f850657038f --sequence 1
++ res=0
+[34m2026-03-28 11:33:55.488 +06 0001 INFO[0m [chaincodeCmd] [34;1mClientWait[0m -> txid [5dc991491da0455a631cac77bb430f11a6b2f059d76f86e74167726ae04b4241] committed with status (VALID) at localhost:9051
+[0;32mChaincode definition approved on peer0.org2 on channel 'dcbachannel'[0m
+[0;34mUsing organization 1[0m
+[0;34mChecking the commit readiness of the chaincode definition on peer0.org1 on channel 'dcbachannel'...[0m
+[0;34mAttempting to check the commit readiness of the chaincode definition on peer0.org1, Retry after 3 seconds.[0m
++ peer lifecycle chaincode checkcommitreadiness --channelID dcbachannel --name dcba-uoc --version 2.0 --sequence 1 --output json
++ res=0
+{
+	"approvals": {
+		"Org1MSP": true,
+		"Org2MSP": true
+	}
+}
+[0;34mChecking the commit readiness of the chaincode definition successful on peer0.org1 on channel 'dcbachannel'[0m
+[0;34mUsing organization 2[0m
+[0;34mChecking the commit readiness of the chaincode definition on peer0.org2 on channel 'dcbachannel'...[0m
+[0;34mAttempting to check the commit readiness of the chaincode definition on peer0.org2, Retry after 3 seconds.[0m
++ peer lifecycle chaincode checkcommitreadiness --channelID dcbachannel --name dcba-uoc --version 2.0 --sequence 1 --output json
++ res=0
+{
+	"approvals": {
+		"Org1MSP": true,
+		"Org2MSP": true
+	}
+}
+[0;34mChecking the commit readiness of the chaincode definition successful on peer0.org2 on channel 'dcbachannel'[0m
+[0;34mUsing organization 1[0m
+[0;34mUsing organization 2[0m
++ peer lifecycle chaincode commit -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile /home/ankan/fabric/fabric-samples/test-network/organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem --channelID dcbachannel --name dcba-uoc --peerAddresses localhost:7051 --tlsRootCertFiles /home/ankan/fabric/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem --peerAddresses localhost:9051 --tlsRootCertFiles /home/ankan/fabric/fabric-samples/test-network/organizations/peerOrganizations/org2.example.com/tlsca/tlsca.org2.example.com-cert.pem --version 2.0 --sequence 1
++ res=0
+[34m2026-03-28 11:34:04.895 +06 0001 INFO[0m [chaincodeCmd] [34;1mClientWait[0m -> txid [38c069a59ef782dde936a6c54485453d16ae23072225bd44b9397a0c60a663b2] committed with status (VALID) at localhost:7051
+[34m2026-03-28 11:34:04.895 +06 0002 INFO[0m [chaincodeCmd] [34;1mClientWait[0m -> txid [38c069a59ef782dde936a6c54485453d16ae23072225bd44b9397a0c60a663b2] committed with status (VALID) at localhost:9051
+[0;32mChaincode definition committed on channel 'dcbachannel'[0m
+[0;34mUsing organization 1[0m
+[0;34mQuerying chaincode definition on peer0.org1 on channel 'dcbachannel'...[0m
+[0;34mAttempting to Query committed status on peer0.org1, Retry after 3 seconds.[0m
++ peer lifecycle chaincode querycommitted --channelID dcbachannel --name dcba-uoc
++ res=0
+Committed chaincode definition for chaincode 'dcba-uoc' on channel 'dcbachannel':
+Version: 2.0, Sequence: 1, Endorsement Plugin: escc, Validation Plugin: vscc, Approvals: [Org1MSP: true, Org2MSP: true]
+[0;32mQuery chaincode definition successful on peer0.org1 on channel 'dcbachannel'[0m
+[0;34mUsing organization 2[0m
+[0;34mQuerying chaincode definition on peer0.org2 on channel 'dcbachannel'...[0m
+[0;34mAttempting to Query committed status on peer0.org2, Retry after 3 seconds.[0m
++ peer lifecycle chaincode querycommitted --channelID dcbachannel --name dcba-uoc
++ res=0
+Committed chaincode definition for chaincode 'dcba-uoc' on channel 'dcbachannel':
+Version: 2.0, Sequence: 1, Endorsement Plugin: escc, Validation Plugin: vscc, Approvals: [Org1MSP: true, Org2MSP: true]
+[0;32mQuery chaincode definition successful on peer0.org2 on channel 'dcbachannel'[0m
+[0;34mChaincode initialization is not required[0m
